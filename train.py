@@ -7,24 +7,26 @@ import sys
 import time
 import logging
 
-import numpy
-import visualize
+import numpy as np
+# import visualize
 
 import theano
 import theano.tensor as T
 
-from helpers.data_helper import shared_dataset, load_data
+from helpers.data_helper import shared_dataset
 from helpers.build_net import build_net
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
+from preprocessing.perturb_dataset import change_train_set
+from util import try_pickle_load
 
-
-# DATA_PATH = "/media/Win/Data/MSRC_images/theano_datasets/"
-DATA_PATH = "/media/Win/Data/"
 logger = logging.getLogger(__name__)
 
+ReLU = lambda x: T.maximum(x, 0)
+lRelU = lambda x: T.maxium(x, 1.0/3.0*x)  # leaky ReLU
 
-def evaluate_conv(n_epochs=200, batch_size=1):
+
+def evaluate_conv(path, n_epochs, batch_size):
     """ Evaluates Farabet-like conv network
 
     :type learning_rate: float
@@ -34,33 +36,40 @@ def evaluate_conv(n_epochs=200, batch_size=1):
     :type n_epochs: int
     :param n_epochs: maximal number of epochs to run the optimizer
     """
+    ################
+    # LOADING DATA #
+    ################
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
 
-    train_set_x, train_set_y = \
-        shared_dataset(load_data(DATA_PATH + 'x_train.bin',
-                                 DATA_PATH + 'y_train.bin'))
-    test_set_x, test_set_y = \
-        shared_dataset(load_data(DATA_PATH + 'x_test.bin',
-                                 DATA_PATH + 'y_test.bin'))
+    x_train_allscales = try_pickle_load(path + 'x_train.bin')
+    x_train = x_train_allscales[0]  # use only first scale (for now :))
+    y_train = try_pickle_load(path + 'y_train.bin')
+    x_test_allscales = try_pickle_load(path + 'x_test.bin')
+    x_test = x_test_allscales[0]
+    y_test = try_pickle_load(path + 'y_test.bin')
+
+    image_shape = (x_train.shape[-2], x_train.shape[-1])
+    logger.info("Image shape is %s", image_shape)
 
     logger.info('Train set has %d images' %
-                train_set_x.get_value().shape[0])
-    logger.info('Input  train set has shape of %s ',
-                train_set_x.get_value().shape)
-    # print 'Output train set has shape of',\
-    #     train_set_y.get_value().shape
+                x_train.shape[0])
+    logger.info('Input train set has shape of %s ',
+                x_train.shape)
+    logger.info('Test set has %d images' %
+                x_test.shape[0])
+    logger.info('Input test set has shape of %s ',
+                x_test.shape)
 
     # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0]
-    n_test_batches = test_set_x.get_value(borrow=True).shape[0]
+    n_train_batches = x_train.shape[0] // batch_size
+    n_test_batches = x_test.shape[0] // batch_size
+    logger.info('Batch size %d' % (batch_size))
 
-    n_train_batches /= batch_size
-    n_test_batches /= batch_size
-    # n_test_batches = 1
+    logger.info("Number of train batches %d" % n_train_batches)
+    logger.info("Number of test batches %d" % n_test_batches)
 
-    logger.debug("Number of train batches %d" % n_train_batches)
-    logger.debug("Number of test batches %d" % n_test_batches)
+    logger.info("... building network")
 
     # allocate symbolic variables for the data
     index = T.lscalar()  # index to a [mini]batch
@@ -72,30 +81,64 @@ def evaluate_conv(n_epochs=200, batch_size=1):
     y = T.imatrix('y')
 
     # create all layers
-    layers = build_net(x, y, batch_size, 9, (216, 320), [16, 64, 256], True)
+    layers, out_shape = build_net(x, y, batch_size, classes=21,
+                                  image_shape=image_shape,
+                                  nkerns=[16, 64, 256],
+                                  sparse=True)
+
+    '''
+    layers, out_shape = build_net(x, y, batch_size, classes=21,
+                                  image_shape=image_shape,
+                                  nkerns=[16, 64, 256],
+                                  sparse=True,
+                                  activation=ReLU, bias=0.001)
+    '''
+    logger.info("Image out shape is %s", out_shape)
+
     # last layer, log reg
     log_reg_layer = layers[0]
+    y_flat = y.flatten(1)
 
-    y_data = y.flatten(1)
+    y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
+    y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
+
+    x_train_shared, y_train_shared = \
+        shared_dataset((np.zeros_like(x_train),
+                        np.zeros(y_train_shape)))
+    x_test_shared, y_test_shared = \
+        shared_dataset((np.zeros_like(x_test),
+                        np.zeros(y_test_shape)))
+
+    # When storing data on the GPU it has to be stored as floats
+    # therefore we will store the labels as ``floatX`` as well
+    # (``shared_y`` does exactly that). But during our computations
+    # we need them as ints (we use labels as index, and if they are
+    # floats it doesn't make sense) therefore instead of returning
+    # ``shared_y`` we will have to cast it to int. This little hack
+    # lets ous get around this issue
+    y_train_shared_i32 = T.cast(y_train_shared, 'int32')
+    y_test_shared_i32 = T.cast(y_test_shared, 'int32')
 
     ###############
     # BUILD MODEL #
     ###############
+    logger.info("... building model")
 
     # create a function to compute the mistakes that are made by the model
     test_model = theano.function(
         [index],
-        (log_reg_layer.errors(y_data), log_reg_layer.negative_log_likelihood(y_data)),
+        (log_reg_layer.errors(y_flat),
+         log_reg_layer.negative_log_likelihood(y_flat)),
         givens={
-            x: test_set_x[index * batch_size: (index + 1) * batch_size],
-            y: test_set_y[index * batch_size: (index + 1) * batch_size]
+            x: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            y: y_test_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
 
     predict_image = theano.function(
         [index],
-        log_reg_layer.y_pred.reshape((43, 69)),
-        givens={x: train_set_x[index:index+1]}
+        log_reg_layer.y_pred.reshape(out_shape),
+        givens={x: x_train_shared[index:index+1]}
     )
 
     # create a list of all model parameters to be fit by gradient descent
@@ -109,7 +152,7 @@ def evaluate_conv(n_epochs=200, batch_size=1):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    cost = log_reg_layer.negative_log_likelihood(y_data)\
+    cost = log_reg_layer.negative_log_likelihood(y_flat)\
         + 10**-5 * T.sum([T.sum(w ** 2) for w in weights])
 
     # train_model is a function that updates the model parameters
@@ -118,18 +161,23 @@ def evaluate_conv(n_epochs=200, batch_size=1):
         cost,
         updates=gradient_updates_rms(cost, params, 0.0001, 0.8),
         givens={
-            x: train_set_x[index * batch_size: (index + 1) * batch_size],
-            y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            x: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
+    pre_fn = lambda: change_train_set(
+        x_train_shared, x_train,
+        y_train_shared, y_train,
+        out_shape)
 
     ###############
     # TRAIN MODEL #
     ###############
+    logger.info("... training model")
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
         n_epochs, train_model, test_model, n_train_batches, n_test_batches,
-        layers)
+        layers, pre_fn)
     end_time = time.clock()
 
     # load the best params
@@ -137,13 +185,15 @@ def evaluate_conv(n_epochs=200, batch_size=1):
         layer.set_weights(params)
 
     #   write to file images classified with best params
-    n_trainset = train_set_x.get_value(borrow=True).shape[0]
+    '''
+    n_trainset = x_train_shared.get_value(borrow=True).shape[0]
     [visualize.show_out_image(predict_image(i), title="image" + str(i),
                               show=False, write=True)
      for i in xrange(n_trainset)]
+    '''
 
     #   write to file visualization of the best filters
-    # visualize.visualize_array(layer0_Y.W.get_value(), title="Layer_0_weights",
+    # visualize.visualize_array(layer0.W.get_value(), title="Layer_0_weights",
     #                           show=False, write=True)
 
     logger.info('Best validation score of %f %% obtained at iteration %i, ' %
@@ -154,7 +204,20 @@ def evaluate_conv(n_epochs=200, batch_size=1):
 
 
 if __name__ == '__main__':
+    """
+    Examples of usage:
+    python train_borko.py
+    """
     logging.basicConfig(level=logging.INFO)
 
+    # create a file handler
+    handler = logging.FileHandler('output.log')
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s  %(message)s')
+    handler.setFormatter(formatter)
+
+    # add the handler to the root logger
+    logging.getLogger('').addHandler(handler)
+
     # evaluate_conv()
-    evaluate_conv(n_epochs=10, batch_size=1)
+    evaluate_conv('./data/MSRC/', n_epochs=20, batch_size=16)

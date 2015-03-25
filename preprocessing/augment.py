@@ -104,6 +104,9 @@ def perturb_image(
         output_shape,
         augmentation_params=default_augmentation_params):
 
+    if len(output_shape) != 2:
+        raise RuntimeError("Output shape must have 2 dims.")
+
     augmentation_params['image_shape'] = output_shape
     tform_augment = random_perturbation_transform(**augmentation_params)
 

@@ -25,7 +25,8 @@ def reduce_image_dim(image_shape, filter_size, pooling_size):
     return map(lambda x: (x - filter_size + 1) // pooling_size, image_shape)
 
 
-def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
+def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
+              activation=T.tanh, bias=0.0):
     """
     Build model for Farabet, Pami (2013) conv network for segmentation
 
@@ -71,7 +72,8 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
         rng,
         input=layer0_Y_input,
         image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
-        filter_shape=(10, 1, filter_size, filter_size)
+        filter_shape=(10, 1, filter_size, filter_size),
+        activation=activation, bias=bias,
     )
 
     #  layer0 has 6 filter maps for U and V channel
@@ -79,7 +81,8 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
         rng,
         input=layer0_UV_input,
         image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
-        filter_shape=(6, 2, filter_size, filter_size)
+        filter_shape=(6, 2, filter_size, filter_size),
+        activation=activation, bias=bias,
     )
 
     # stack outputs from Y, U, V channel layer
@@ -97,6 +100,7 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
         input=layer0_output,
         image_shape=(batch_size, nkerns[0], image_shape1[0], image_shape1[1]),
         filter_shape=(nkerns[1], filters_to_use1, filter_size, filter_size),
+        activation=activation, bias=bias,
     )  # create 64 feature maps from 8 fmaps
 
     # Construct the third convolutional pooling layer
@@ -109,6 +113,7 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
         input=layer1.output,
         image_shape=(batch_size, nkerns[1], image_shape2[0], image_shape2[1]),
         filter_shape=(nkerns[2], filters_to_use2, filter_size, filter_size),
+        activation=activation, bias=bias,
         poolsize=(1, 1),  # no pooling
         only_conv=True,  # this layer has only bank of filters
     )  # create 256 feature maps from 32 fmaps
@@ -123,6 +128,7 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
     # * width, feature_size) so that Linear regression can do pixel-wise
     # classification
     layer3_input = layer2.output.dimshuffle(0, 2, 3, 1).reshape((-1, nkerns[2]))
+    image_shape3 = reduce_image_dim(image_shape2, filter_size, 1)
 
     # classify the values of the fully-connected sigmoidal layer
     layer3 = LogisticRegression(input=layer3_input,
@@ -131,4 +137,4 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False):
 
     # list of all layers
     layers = [layer3, layer2, layer1, layer0_Y, layer0_UV]
-    return layers
+    return layers, tuple(image_shape3)

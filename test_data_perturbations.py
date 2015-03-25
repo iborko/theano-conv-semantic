@@ -39,34 +39,29 @@ def main(path, marked_path=None):
             perturbed_imgs[i] = ret_list[0]
             perturbed_marks[i] = ret_list[1]
 
-    i = 0
     for j in xrange(IMAGES_TO_SHOW):
-        pylab.subplot(4, IMAGES_TO_SHOW, i * IMAGES_TO_SHOW + j + 1)
-        pylab.gray()
+        pylab.subplot(4, IMAGES_TO_SHOW, 0 * IMAGES_TO_SHOW + j + 1)
         pylab.axis('off')
         pylab.imshow(imgs[j, 0, :, :])
-
-    i += 1
-    for j in xrange(IMAGES_TO_SHOW):
-        pylab.subplot(4, IMAGES_TO_SHOW, i * IMAGES_TO_SHOW + j + 1)
-        pylab.gray()
+        pylab.gray()  # set colormap
+        
+        pylab.subplot(4, IMAGES_TO_SHOW, 1 * IMAGES_TO_SHOW + j + 1)
         pylab.axis('off')
         pylab.imshow(perturbed_imgs[j, 0, :, :])
+        pylab.gray()
 
     if perturbed_marks is not None:
-        i += 1
         for j in xrange(IMAGES_TO_SHOW):
-            pylab.subplot(4, IMAGES_TO_SHOW, i * IMAGES_TO_SHOW + j + 1)
-            pylab.gray()
+            pylab.subplot(4, IMAGES_TO_SHOW, 2 * IMAGES_TO_SHOW + j + 1)
             pylab.axis('off')
             pylab.imshow(marked_imgs[j, :, :])
-
-        i += 1
-        for j in xrange(IMAGES_TO_SHOW):
-            pylab.subplot(4, IMAGES_TO_SHOW, i * IMAGES_TO_SHOW + j + 1)
-            pylab.gray()
+            pylab.jet()
+            
+            pylab.subplot(4, IMAGES_TO_SHOW, 3 * IMAGES_TO_SHOW + j + 1)
             pylab.axis('off')
             pylab.imshow(perturbed_marks[j, :, :])
+            pylab.jet()
+
     pylab.show()
 
 if __name__ == "__main__":
