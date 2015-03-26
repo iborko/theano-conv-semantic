@@ -50,9 +50,9 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     assert(len(nkerns) == 3)
     # this version has to have 16 filters in first layer
     assert(nkerns[0] == 16)
-    
+
     # convolution kernel size
-    filter_size = 7
+    filter_size = 5
 
     logger.info('... building the model')
 

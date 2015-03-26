@@ -14,12 +14,13 @@ import multiprocessing as mp
 from preprocessing.transform_in import yuv_laplacian_norm
 from preprocessing.transform_out import process_out
 from dataset.loader_msrc import load_dataset
+from preprocessing.class_counter import ClassCounter
 from util import try_pickle_dump
 
 logger = logging.getLogger(__name__)
 
-DATASET_PATH = 'data/MSRC/'
-OUT_PATH = 'data/MSRC/'
+DATASET_PATH = './data/MSRC/'
+OUT_PATH = './data/MSRC/theano_datasets/'
 requested_shape = (216, 320)
 n_layers = 1
 
@@ -72,17 +73,20 @@ def save_result_segm(result_list, result):
     result_list[i] = img
 
 
-def mark_image(i, img):
-    layers = process_out(img, requested_shape)
+def mark_image(i, img, cc, requested_shape):
+    logger.info("Marking image %d", i)
+    layers = process_out(img, cc, requested_shape)
     return i, layers
 
 
-def generate_targets(samples):
+def generate_targets(samples, class_counter):
     """
     Generates array of segmented images.
 
     samples: list
         list of Sample objects
+    class_counter: ClassCounter object
+        object used for generating class markings (class ordinal numbers)
 
     returns: np.array
         array of class ordinal numbers
@@ -99,7 +103,11 @@ def generate_targets(samples):
     result_func = lambda result: save_result_segm(y, result)
 
     for i, sample in enumerate(samples):
-        pool.apply_async(mark_image, args=(i, sample.marked_image,),
+        # result_func(mark_image(i, sample.marked_image,
+        #                        class_counter, requested_shape))
+        pool.apply_async(mark_image,
+                         args=(i, sample.marked_image,
+                               class_counter, requested_shape,),
                          callback=result_func)
     pool.close()
     pool.join()
@@ -138,7 +146,7 @@ def main(show=False):
     samples = list(samples)
 
     #    use only subset of data TODO remove this
-    # DATA_TO_USE = 100
+    # DATA_TO_USE = 30
     # samples = samples[:DATA_TO_USE]
 
     random.seed(23455)
@@ -147,20 +155,24 @@ def main(show=False):
     train_samples, test_samples = split_samples(samples, 0.1)
     del samples
 
+    cc = ClassCounter()
+
     x_train = generate_x(train_samples)
     x_test = generate_x(test_samples)
-    y_train = generate_targets(train_samples)
-    y_test = generate_targets(test_samples)
+    y_train = generate_targets(train_samples, cc)
+    y_test = generate_targets(test_samples, cc)
     del train_samples
     del test_samples
+
+    cc.log_stats()
 
     try_pickle_dump(x_train, OUT_PATH + "x_train.bin")
     try_pickle_dump(x_test, OUT_PATH + "x_test.bin")
     try_pickle_dump(y_train, OUT_PATH + "y_train.bin")
     try_pickle_dump(y_test, OUT_PATH + "y_test.bin")
 
-    print x_train[0][0, 0, 80:90, 80:90]
-    print x_test[0][0, 0, 80:90, 80:90]
+    # print x_train[0][0, 0, 80:90, 80:90]
+    # print x_test[0][0, 0, 80:90, 80:90]
 
     if show:
         n_imgs = 5

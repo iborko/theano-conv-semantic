@@ -220,4 +220,4 @@ if __name__ == '__main__':
     logging.getLogger('').addHandler(handler)
 
     # evaluate_conv()
-    evaluate_conv('./data/MSRC/', n_epochs=20, batch_size=16)
+    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=20, batch_size=2)

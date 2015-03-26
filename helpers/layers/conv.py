@@ -23,7 +23,8 @@ class ConvPoolLayer(object):
 
     def __init__(self, rng, input, filter_shape, image_shape,
                  poolsize=(2, 2), only_conv=False, activation=T.tanh,
-                 bias=0.0, stride=(1, 1), ignore_border_pool=True):
+                 bias=0.0, stride=(1, 1), ignore_border_pool=True,
+                 W=None, b=None):
         """
         Allocate layer with shared variable internal parameters.
 
@@ -95,17 +96,24 @@ class ConvPoolLayer(object):
             #   zero out unused weights
             for ind, tzo_row in enumerate(to_zero_out):
                 W_values[ind, tzo_row] = 0.
+        
+        if W is None:
+            self.W = theano.shared(
+                numpy.asarray(
+                    W_values,
+                    dtype=theano.config.floatX),
+                borrow=True)
+        else:
+            self.W = W
 
-        self.W = theano.shared(
-            numpy.asarray(
-                W_values,
-                dtype=theano.config.floatX),
-            borrow=True)
-
-        #   the bias is a 1D tensor -- one bias per output feature map
-        b_values = numpy.zeros((filter_shape[0],), dtype=theano.config.floatX)
-        b_values += bias
-        self.b = theano.shared(value=b_values, borrow=True)
+        if b is None:
+            #   the bias is a 1D tensor -- one bias per output feature map
+            b_values = numpy.zeros((filter_shape[0],),
+                                   dtype=theano.config.floatX)
+            b_values += bias
+            self.b = theano.shared(value=b_values, borrow=True)
+        else:
+            self.b = b
 
         # convolve input feature maps with filters
         conv_out = conv.conv2d(

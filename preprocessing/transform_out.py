@@ -4,22 +4,21 @@ Module containing functions for processing of input images
 
 import logging
 import cv2
-from class_counter import ClassCounter
 
 logger = logging.getLogger(__name__)
 
 
-def process_out(img, requested_shape):
+def process_out(img, cc, requested_shape):
     '''
     Replaces RGB colors of every pixel with class number.
 
     img: numpy array
         image
+    cc: ClassCounter object
+        counting of class markings
     requested_shape: 2-tuple
         requested dimension of output shape
     '''
-
-    cc = ClassCounter()
 
     logger.debug("Image has shape %s", img.shape)
     # rotate image for 90, if in portrait orientation
@@ -38,6 +37,6 @@ def process_out(img, requested_shape):
                              cv2.BORDER_CONSTANT, 0)
     # gives (r, g, b) for every pixel, where r=g=b=class_index
     img = cc.count_matrix(img)
-    img = img[:, :, 0]
+    assert(img.ndim == 2)
 
     return img
