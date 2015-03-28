@@ -8,6 +8,21 @@ import cv2
 logger = logging.getLogger(__name__)
 
 
+def resize_marked_image(img, requested_shape):
+    '''
+    Resizes marked image (image with class markings) with no interpolation.
+
+    img: numpy array
+        image
+    requested_shape: 2-tuple
+        shape of the output image
+    '''
+    assert(len(requested_shape) == 2)
+    return cv2.resize(
+        img, (requested_shape[1], requested_shape[0]),
+        interpolation=cv2.INTER_NEAREST)
+
+
 def process_out(img, cc, requested_shape):
     '''
     Replaces RGB colors of every pixel with class number.

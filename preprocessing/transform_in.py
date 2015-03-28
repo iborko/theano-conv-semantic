@@ -32,7 +32,7 @@ def normalize_block(block):
 
 
 def normalize(img):
-    ''' Normalizes (mean=0, stdev=1) img in blocks of 15x15 '''
+    ''' Normalizes (mean=0, stdev=1) image in blocks of 15x15 '''
     b_x, b_y = 15, 15
     for x in xrange(0, img.shape[0], b_x):
         for y in xrange(0, img.shape[1], b_y):

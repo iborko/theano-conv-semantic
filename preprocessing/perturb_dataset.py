@@ -5,6 +5,7 @@ import augment
 import numpy as np
 import multiprocessing as mp
 import pylab
+from transform_out import resize_marked_image
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,9 @@ def perturb_img_pair(i, imgs, marked_shape):
     """
     image_shape = imgs[0][0].shape
     new_imgs = augment.perturb_image(imgs, image_shape)
-    marked_downscaled = cv2.resize(
-        new_imgs[1], (marked_shape[1], marked_shape[0]),
-        interpolation=cv2.INTER_NEAREST)
+    marked_downscaled = resize_marked_image(
+        new_imgs[1], (marked_shape)
+    )
     new_imgs[1] = marked_downscaled
     return i, new_imgs
 
@@ -62,7 +63,7 @@ def change_train_set(shared_x, x, shared_y, y, marked_shape):
     new_y_shape = (y.shape[0], marked_shape[0], marked_shape[1])
     new_y = np.zeros(new_y_shape,
                      dtype=theano.config.floatX)
-    logger.info("\|/- Started perturbing dataset")
+    logger.info("/|\ - Started perturbing dataset")
 
     pool = mp.Pool(mp.cpu_count())
 
@@ -76,8 +77,8 @@ def change_train_set(shared_x, x, shared_y, y, marked_shape):
     pool.close()
     pool.join()
 
-    shared_x.set_value(new_x, borrow=True)
-    shared_y.set_value(new_y.reshape((new_y.shape[0], -1)), borrow=True)
+    shared_x.set_value(new_x, borrow=False)
+    shared_y.set_value(new_y.reshape((new_y.shape[0], -1)), borrow=False)
 
     '''
     # debugging purposes

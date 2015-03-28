@@ -69,6 +69,7 @@ def generate_x(samples):
 
 
 def save_result_segm(result_list, result):
+    """ Callback function, called in main process, saves result """
     i, img = result
     result_list[i] = img
 
@@ -141,12 +142,12 @@ def main(show=False):
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
 
-    # samples is list of Sample objects
+    #   samples is list of Sample objects
     samples = load_dataset(DATASET_PATH)
     samples = list(samples)
 
-    #    use only subset of data TODO remove this
-    # DATA_TO_USE = 30
+    #   use only subset of data TODO remove this
+    # DATA_TO_USE = 60
     # samples = samples[:DATA_TO_USE]
 
     random.seed(23455)

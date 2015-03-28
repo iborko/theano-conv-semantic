@@ -4,6 +4,9 @@ import multiprocessing as mp
 
 log = logging.getLogger(__name__)
 
+# maximum color value
+MAX_VAL = 256
+
 
 class ClassCounter(object):
     '''
@@ -15,25 +18,29 @@ class ClassCounter(object):
         self.classes = manager.dict()
         self.lock = manager.Lock()
         self.index = manager.Value('i', 0)
-        self.get_num((0, 0, 0))
+        self.get_num(0)
         log.info("Class counter initialized")
 
     def count_matrix(self, m):
         ''' run class counting on 2d matrix '''
+
+        # convert (r,g,b) tuples to discrete numbers
+        converted_m = np.dot(m, np.array([MAX_VAL**2, MAX_VAL, 1]))
         # find all colors
-        set_colors = set([])
-        for i in xrange(len(m)):
-            for j in xrange(len(m[i])):
-                    set_colors.add(tuple(m[i, j]))
+        unique_colors = np.unique(converted_m)
+
         # find numbers for colors
-        for color in set_colors:
+        for color in unique_colors:
             self.get_num(color)
-        
+
+        # copy manager.dict() (which is mp-safe) to local dict
+        classes_copy = {}
+        classes_copy.update(self.classes)
+
         # now we have all colors, just set them
         out_matrix = np.zeros((m.shape[0], m.shape[1]), dtype='int32')
-        for i in xrange(len(m)):
-            for j in xrange(len(m[i])):
-                out_matrix[i, j] = self.classes[tuple(m[i, j])]
+        for k, v in classes_copy.iteritems():
+            out_matrix[converted_m==k] = v
         return out_matrix
 
     def get_num(self, color):
@@ -48,13 +55,29 @@ class ClassCounter(object):
         """ return the number of different colors """
         return self.index.value
 
+    def _convert_to_rgb(self, value):
+        """
+        value: int
+            discrete number representing RGB tuple
+
+        Returns: 3-tuple
+            R, G, B componenets
+        """
+        r = value // MAX_VAL**2
+        g = (value - r * MAX_VAL**2) // MAX_VAL
+        b = value - r * MAX_VAL**2 - g * MAX_VAL
+        return (r, g, b)
+
     def log_stats(self):
         """
         Logs with logger (logging level INFO) data about Class counter.
         Logger must me initialized.
         """
+        rgb_dict = {}
+        for key in self.classes.keys():
+            rgb_dict[self.classes[key]] = self._convert_to_rgb(key)
         log.info("Found %d classes", self.get_total_colors())
-        log.info("Classes %s", self.classes)
+        log.info("Classes %s", rgb_dict)
 
 
 def test_class_counter():

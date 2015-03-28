@@ -8,7 +8,7 @@ import time
 import logging
 
 import numpy as np
-# import visualize
+import visualize
 
 import theano
 import theano.tensor as T
@@ -18,6 +18,7 @@ from helpers.build_net import build_net
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set
+from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 
 logger = logging.getLogger(__name__)
@@ -81,16 +82,16 @@ def evaluate_conv(path, n_epochs, batch_size):
     y = T.imatrix('y')
 
     # create all layers
-    layers, out_shape = build_net(x, y, batch_size, classes=21,
+    layers, out_shape = build_net(x, y, batch_size, classes=24,
                                   image_shape=image_shape,
                                   nkerns=[16, 64, 256],
                                   sparse=True)
 
     '''
-    layers, out_shape = build_net(x, y, batch_size, classes=21,
+    layers, out_shape = build_net(x, y, batch_size, classes=24,
                                   image_shape=image_shape,
                                   nkerns=[16, 64, 256],
-                                  sparse=True,
+                                  sparse=False,
                                   activation=ReLU, bias=0.001)
     '''
     logger.info("Image out shape is %s", out_shape)
@@ -102,12 +103,17 @@ def evaluate_conv(path, n_epochs, batch_size):
     y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
     y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
 
+    # resize marked images to out_size of the network
+    y_test_downscaled = np.empty(y_test_shape)
+    for i in xrange(y_test.shape[0]):
+        y_test_downscaled[i] = resize_marked_image(y_test[i], out_shape)
+
     x_train_shared, y_train_shared = \
         shared_dataset((np.zeros_like(x_train),
                         np.zeros(y_train_shape)))
     x_test_shared, y_test_shared = \
-        shared_dataset((np.zeros_like(x_test),
-                        np.zeros(y_test_shape)))
+        shared_dataset((x_test,
+                        y_test_downscaled))
 
     # When storing data on the GPU it has to be stored as floats
     # therefore we will store the labels as ``floatX`` as well
@@ -138,7 +144,7 @@ def evaluate_conv(path, n_epochs, batch_size):
     predict_image = theano.function(
         [index],
         log_reg_layer.y_pred.reshape(out_shape),
-        givens={x: x_train_shared[index:index+1]}
+        givens={x: x_test_shared[index:index+1]}
     )
 
     # create a list of all model parameters to be fit by gradient descent
@@ -184,9 +190,9 @@ def evaluate_conv(path, n_epochs, batch_size):
     for params, layer in zip(best_params, layers):
         layer.set_weights(params)
 
-    #   write to file images classified with best params
     '''
-    n_trainset = x_train_shared.get_value(borrow=True).shape[0]
+    #   write to file images classified with best params
+    n_trainset = x_test_shared.get_value(borrow=True).shape[0]
     [visualize.show_out_image(predict_image(i), title="image" + str(i),
                               show=False, write=True)
      for i in xrange(n_trainset)]
@@ -220,4 +226,4 @@ if __name__ == '__main__':
     logging.getLogger('').addHandler(handler)
 
     # evaluate_conv()
-    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=20, batch_size=2)
+    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=100, batch_size=8)
