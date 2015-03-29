@@ -49,7 +49,7 @@ def eval_model(n_epochs, train_fn, test_fn, n_train_batches, n_test_batches,
 
     #   early-stopping parameters
     # look as this many iterations regardless
-    patience = 12000
+    patience = 120000
     # wait this much longer when a new best is found
     patience_increase = 2
     # a relative improvement of this much is considered significant

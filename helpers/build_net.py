@@ -161,15 +161,15 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     returns: list
         list of all layers, first layer is actually the last (log reg)
     """
-    # farabet pami net has 3 conv layers
-    assert(len(nkerns) == 5)
+    # net has 4 conv layers
+    assert(len(nkerns) == 4)
     # this version has to have 16 filters in first layer
     assert(nkerns[0] == 32)
     
-    DROPOUT_RATE = 0.5
+    DROPOUT_RATE = None
 
     # convolution kernel size
-    filter_size = 5
+    filter_size = 7
 
     logger.info('... building the model')
 
@@ -232,7 +232,6 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
         filter_shape=(nkerns[2], filters_to_use2, filter_size, filter_size),
         activation=activation, bias=bias,
         poolsize=(1, 1),  # no pooling
-        only_conv=True,  # this layer has only bank of filters
     )  # create 256 feature maps from 32 fmaps
 
     # Logistic regression operates on (batch_size, pixel_count, feature_size)
@@ -257,21 +256,12 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
         dropout_p=DROPOUT_RATE
     )
 
-    # construct a dropout hidden layer
-    layer4 = HiddenLayerDropout(
-        rng=rng,
-        input=layer3.output,
-        n_in=nkerns[3],
-        n_out=nkerns[4],
-        activation=activation, bias=bias,
-        dropout_p=DROPOUT_RATE
-    )
 
     # classify the values of the fully-connected sigmoidal layer
-    layer5 = LogisticRegression(input=layer4.output,
-                                n_in=nkerns[4],
+    layer4 = LogisticRegression(input=layer3.output,
+                                n_in=nkerns[3],
                                 n_out=classes)
 
     # list of all layers
-    layers = [layer5, layer4, layer3, layer2, layer1, layer0_Y, layer0_UV]
+    layers = [layer4, layer3, layer2, layer1, layer0_Y, layer0_UV]
     return layers, tuple(image_shape3)

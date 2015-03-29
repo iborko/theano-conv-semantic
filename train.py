@@ -15,7 +15,7 @@ import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
 from helpers.build_net import build_net, build_net1
-from helpers.weight_updates import gradient_updates_rms
+from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set
 from preprocessing.transform_out import resize_marked_image
@@ -91,8 +91,8 @@ def evaluate_conv(path, n_epochs, batch_size):
     '''
     layers, out_shape = build_net1(x, y, batch_size, classes=24,
                                    image_shape=image_shape,
-                                   nkerns=[32, 128, 256, 1000, 800],
-                                   sparse=False,
+                                   nkerns=[32, 128, 256, 800],
+                                   sparse=True,
                                    activation=ReLU, bias=0.001)
     logger.info("Image out shape is %s", out_shape)
 
@@ -165,7 +165,8 @@ def evaluate_conv(path, n_epochs, batch_size):
     train_model = theano.function(
         [index],
         cost,
-        updates=gradient_updates_rms(cost, params, 0.0001, 0.8),
+        # updates=gradient_updates_rms(cost, params, 0.0001, 0.8),
+        updates=gradient_updates_SGD(cost, params, 0.001, 0.999),
         givens={
             x: x_train_shared[index * batch_size: (index + 1) * batch_size],
             y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
@@ -226,4 +227,4 @@ if __name__ == '__main__':
     logging.getLogger('').addHandler(handler)
 
     # evaluate_conv()
-    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=200, batch_size=8)
+    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=300, batch_size=1)
