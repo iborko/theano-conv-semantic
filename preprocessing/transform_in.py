@@ -39,6 +39,23 @@ def normalize(img):
             normalize_block(img[x:(x + b_x), y:(y + b_y)])
 
 
+def crop_to_shape(img, requested_shape):
+    ''' If image shape is larger than requested, crop it '''
+    return img[:requested_shape[0], :requested_shape[1], :]
+
+
+def fill_to_shape(img, requested_shape):
+    ''' Fill image with black, output shape will be as defined in
+    requested shape '''
+    fill_y = requested_shape[0] - img.shape[0]
+    fill_x = requested_shape[1] - img.shape[1]
+    if fill_x < 0 or fill_y < 0:
+        logger.error("Image shape not valid %s", img.shape)
+        exit(1)
+    return cv2.copyMakeBorder(img, fill_x, fill_y, 0, 0,
+                              cv2.BORDER_CONSTANT, 0)
+
+
 def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     '''
     Image is cropped and filled to static shape size, then
@@ -55,21 +72,14 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
         pylab.imshow(img[:, :, j])
     '''
 
-    logger.debug("Images has shape %s", img.shape)
+    logger.debug("Image has shape %s", img.shape)
     #   rotate image for 90, if in portrait orientation
     if img.shape[0] > img.shape[1]:
         img = cv2.transpose(img)
 
-    #   crop to requested shape
-    img = img[:requested_shape[0], :requested_shape[1], :]
-
-    fill_y = requested_shape[0] - img.shape[0]
-    fill_x = requested_shape[1] - img.shape[1]
-    if fill_x < 0 or fill_y < 0:
-        logger.error("Image shape not valid %s", img.shape)
-        exit(1)
-    img = cv2.copyMakeBorder(img, fill_x, fill_y, 0, 0,
-                             cv2.BORDER_CONSTANT, 0)
+    #   crop and fill to shape
+    img = crop_to_shape(img, requested_shape)
+    img = fill_to_shape(img, requested_shape)
 
     #   convert to YUV (inplace)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
@@ -96,6 +106,7 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     # print "After axis swap\n", pyr_levels[0][0, :5, :5]
 
     '''
+    #   debug output
     for j in xrange(3):
         pylab.subplot(2, 3, 1 * 3 + j + 1)
         pylab.gray()
