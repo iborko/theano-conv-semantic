@@ -89,7 +89,7 @@ def evaluate_conv(path, n_epochs, batch_size):
                                   sparse=True)
 
     '''
-    layers, out_shape = build_net2(x, y, batch_size, classes=10, # 24
+    layers, out_shape = build_net2(x, y, batch_size, classes=24,
                                    image_shape=image_shape,
                                    nkerns=[32, 128, 256, 256],
                                    sparse=True,
