@@ -17,6 +17,7 @@ def parse_log(fname):
     train = []
     train_acc = []
     val = []
+    val_error = []
 
     with open(fname) as f:
         for line in f:
@@ -28,23 +29,37 @@ def parse_log(fname):
                 train_acc.append(train)
                 train = []
 
+            if 'validation error' in line:
+                val_error.append(float(line.split('validation error')[-1].split()[-2]))
+
     train = np.vstack(map(lambda x: sum(x) / len(x), train_acc))
     val = np.vstack(val)
+    val_error = np.vstack(val_error)
 
-    return (train, val)
+    return (train, val, val_error)
 
 
 def main():
 
-    train, val = parse_log(sys.argv[1])
+    train, val, val_error = parse_log(sys.argv[1])
 
-    plt.plot(train, label='training')
-    plt.plot(val, label='validation')
-    plt.plot(np.ones(len(val)) * np.min(val), 'r--')
-    plt.plot([np.argmin(val)], [np.min(val)], 'ro')
-    plt.xlabel('epochs')
-    plt.ylabel('cost')
-    plt.legend(loc='best')
+    fig, ax1 = plt.subplots()
+
+    ax1.plot(train, label='training cost')
+    ax1.plot(val, label='validation cost')
+    ax1.plot(np.ones(len(val)) * np.min(val), 'r--')
+    ax1.plot([np.argmin(val)], [np.min(val)], 'ro')
+    ax1.set_xlabel('epochs')
+    ax1.set_ylabel('cost')
+    ax1.legend(loc='best')
+
+    ax2 = ax1.twinx()
+    ax2.plot(val_error, 'r', label='validation error')
+    ax2.plot(np.ones(len(val_error)) * np.min(val_error), 'r--')
+    ax2.plot([np.argmin(val_error)], [np.min(val_error)], 'ro')
+    ax2.set_ylabel('validation error', color='r')
+    for tl in ax2.get_yticklabels():
+            tl.set_color('r')
     plt.show()
 
 
