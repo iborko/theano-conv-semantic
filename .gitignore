@@ -56,3 +56,5 @@ target/
 
 # dataset
 data/
+# network files
+*.bin

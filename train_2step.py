@@ -14,7 +14,7 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_net import build_net, build_net2
+from helpers.build_net import build_net, build_net2, extend_net
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set
@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 ReLU = lambda x: T.maximum(x, 0)
 lRelU = lambda x: T.maxium(x, 1.0/3.0*x)  # leaky ReLU
+
+NCLASSES = 24
+N_EPOCHS = 1
+BATCH_SIZE = 8
 
 
 def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
@@ -83,13 +87,13 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
 
     # create all layers
     '''
-    layers, out_shape = build_net(x, y, batch_size, classes=24,
+    layers, out_shape = build_net(x, y, batch_size, classes=NCLASSES.
                                   image_shape=image_shape,
                                   nkerns=[16, 64, 256],
                                   sparse=True)
 
     '''
-    layers, out_shape = build_net2(x, y, batch_size, classes=24,
+    layers, out_shape = build_net2(x, y, batch_size, classes=NCLASSES,
                                    image_shape=image_shape,
                                    nkerns=[32, 128, 256, 256],
                                    sparse=True,
@@ -141,12 +145,6 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         }
     )
 
-    predict_image = theano.function(
-        [index],
-        log_reg_layer.y_pred.reshape(out_shape),
-        givens={x: x_test_shared[index:index+1]}
-    )
-
     # create a list of all model parameters to be fit by gradient descent
     params = [p for l in layers for p in l.params]
     # list of Ws through all layers
@@ -180,6 +178,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     if net_weights is not None:
         for net_weight, layer in zip(net_weights, layers):
             layer.set_weights(net_weight)
+        logger.info("Loaded net weights from file.")
 
     ###############
     # TRAIN MODEL #
@@ -191,21 +190,59 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         layers, pre_fn)
     end_time = time.clock()
 
-    # load the best params
-    for params, layer in zip(best_params, layers):
-        layer.set_weights(params)
+    logger.info('Best validation score of %f %% obtained at iteration %i, ' %
+                (best_validation_loss * 100., best_iter + 1))
+    print >> sys.stderr, ('The code for file %s ran for %.2fm' %
+                          (os.path.split(__file__)[1],
+                           (end_time - start_time) / 60.))
 
-    '''
-    #   write to file images classified with best params
-    n_trainset = x_test_shared.get_value(borrow=True).shape[0]
-    [visualize.show_out_image(predict_image(i), title="image" + str(i),
-                              show=False, write=True)
-     for i in xrange(n_trainset)]
-    '''
+    logger.info('Starting second step, with Dropout hidden layers')
+    layers, new_layers = extend_net(
+        layers, NCLASSES,
+        nkerns=[800, 800], activation=ReLU, bias=0.001)
 
-    #   write to file visualization of the best filters
-    # visualize.visualize_array(layer0.W.get_value(), title="Layer_0_weights",
-    #                           show=False, write=True)
+    # create a function to compute the mistakes that are made by the model
+    test_model2 = theano.function(
+        [index],
+        (layers[0].errors(y_flat),
+         layers[0].negative_log_likelihood(y_flat)),
+        givens={
+            x: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            y: y_test_shared_i32[index * batch_size: (index + 1) * batch_size]
+        }
+    )
+
+    # create a list of all model parameters to be fit by gradient descent
+    params2 = [p for l in new_layers for p in l.params]
+    # list of Ws through all layers
+    weights2 = [l.params[0] for l in new_layers]
+
+    assert(len(weights2) == len(params2)/2)
+
+    # the cost we minimize during training is the NLL of the model
+    #  and L2 regularization (lamda * L2-norm)
+    # L2-norm is sum of squared params (using only W, not b)
+    #  params has Ws on even locations
+    cost2 = layers[0].negative_log_likelihood(y_flat)\
+        + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
+
+    # train_model is a function that updates the model parameters
+    train_model2 = theano.function(
+        [index],
+        cost2,
+        updates=gradient_updates_rms(cost2, params2, 0.0001, 0.8),
+        givens={
+            x: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
+        }
+    )
+
+    # evaluate model2
+    start_time = time.clock()
+    best_validation_loss, best_iter, best_params = eval_model(
+        n_epochs, train_model2, test_model2, n_train_batches, n_test_batches,
+        layers, pre_fn)
+    end_time = time.clock()
 
     logger.info('Best validation score of %f %% obtained at iteration %i, ' %
                 (best_validation_loss * 100., best_iter + 1))
@@ -234,4 +271,10 @@ if __name__ == '__main__':
     logging.getLogger('').addHandler(handler)
 
     # evaluate_conv()
-    evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=220, batch_size=1)
+    if len(sys.argv) == 2:
+        params = try_pickle_load(sys.argv[1])
+        evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=N_EPOCHS,
+                      batch_size=BATCH_SIZE, net_weights=params)
+    else:
+        evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=N_EPOCHS,
+                      batch_size=BATCH_SIZE)

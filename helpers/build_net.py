@@ -1,5 +1,4 @@
 import logging
-import theano
 import numpy
 import theano.tensor as T
 
@@ -140,8 +139,9 @@ def build_net(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     layers = [layer3, layer2, layer1, layer0_Y, layer0_UV]
     return layers, tuple(image_shape3)
 
+
 def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
-              activation=T.tanh, bias=0.0):
+               activation=T.tanh, bias=0.0):
     """
     Build model for conv network for segmentation
 
@@ -165,7 +165,7 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     assert(len(nkerns) == 4)
     # this version has to have 16 filters in first layer
     assert(nkerns[0] == 32)
-    
+
     DROPOUT_RATE = None
 
     # convolution kernel size
@@ -225,7 +225,7 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
 
     layer3_input = layer2.output.dimshuffle(0, 2, 3, 1).reshape((-1, nkerns[2]))
     image_shape3 = reduce_image_dim(image_shape2, filter_size, 1)
-    
+
     # construct a dropout hidden layer
     layer3 = HiddenLayerDropout(
         rng=rng,
@@ -235,7 +235,6 @@ def build_net1(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
         activation=activation, bias=bias,
         dropout_p=DROPOUT_RATE
     )
-
 
     # classify the values of the fully-connected sigmoidal layer
     layer4 = LogisticRegression(input=layer3.output,
@@ -327,7 +326,7 @@ def build_net2(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
         activation=activation, bias=bias,
         poolsize=(1, 1),
     )
-    
+
     # Construct the 4th convolutional pooling layer
     image_shape3 = reduce_image_dim(image_shape2, nfilters[2], 1)
     filters_to_use3 = nkerns[2] // 2 if sparse else nkerns[2]
@@ -344,7 +343,6 @@ def build_net2(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     layer4_input = layer3.output.dimshuffle(0, 2, 3, 1).reshape((-1, nkerns[3]))
     image_shape4 = reduce_image_dim(image_shape3, nfilters[3], 1)
 
-
     # classify the values of the fully-connected sigmoidal layer
     layer4 = LogisticRegression(input=layer4_input,
                                 n_in=nkerns[3],
@@ -353,3 +351,42 @@ def build_net2(x, y, batch_size, classes, image_shape, nkerns, sparse=False,
     # list of all layers
     layers = [layer4, layer3, layer2, layer1, layer0_Y, layer0_UV]
     return layers, tuple(image_shape4)
+
+
+def extend_net(layers, classes, nkerns,
+               activation=T.tanh, bias=0.0):
+    """
+    Extends net with hidden layers.
+    """
+    assert(len(nkerns) == 2)
+    rng = numpy.random.RandomState(23456)
+    DROPOUT_RATE = 0.5
+
+    input = layers[1].dimshuffle(0, 2, 3, 1).reshape((-1, 256))
+
+    layer_h0 = HiddenLayerDropout(
+        rng=rng,
+        input=input,
+        n_in=256,
+        n_out=nkerns[0],
+        activation=activation, bias=bias,
+        dropout_p=DROPOUT_RATE
+    )
+
+    layer_h1 = HiddenLayerDropout(
+        rng=rng,
+        input=layer_h0.output,
+        n_in=nkerns[0],
+        n_out=nkerns[1],
+        activation=activation, bias=bias,
+        dropout_p=DROPOUT_RATE
+    )
+
+    # classify the values of the fully-connected sigmoidal layer
+    layer_h2 = LogisticRegression(input=layer_h1.output,
+                                  n_in=nkerns[1],
+                                  n_out=classes)
+
+    new_layers = [layer_h2, layer_h1, layer_h0]
+    all_layers = new_layers + layers[1:]
+    return all_layers, new_layers
