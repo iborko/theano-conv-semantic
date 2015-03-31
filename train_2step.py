@@ -14,7 +14,7 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_net import build_net, build_net2, extend_net
+from helpers.build_net import build_net, build_net2, extend_net1
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set
@@ -27,7 +27,7 @@ ReLU = lambda x: T.maximum(x, 0)
 lRelU = lambda x: T.maxium(x, 1.0/3.0*x)  # leaky ReLU
 
 NCLASSES = 24
-N_EPOCHS = 1
+N_EPOCHS = 100
 BATCH_SIZE = 8
 
 
@@ -186,7 +186,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     logger.info("... training model")
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
-        n_epochs, train_model, test_model, n_train_batches, n_test_batches,
+        1, train_model, test_model, n_train_batches, n_test_batches,
         layers, pre_fn)
     end_time = time.clock()
 
@@ -197,9 +197,9 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
                            (end_time - start_time) / 60.))
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net(
+    layers, new_layers = extend_net1(
         layers, NCLASSES,
-        nkerns=[800, 800], activation=ReLU, bias=0.001)
+        nkerns=[1000], activation=ReLU, bias=0.001)
 
     # create a function to compute the mistakes that are made by the model
     test_model2 = theano.function(

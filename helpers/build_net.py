@@ -362,7 +362,7 @@ def extend_net(layers, classes, nkerns,
     rng = numpy.random.RandomState(23456)
     DROPOUT_RATE = 0.5
 
-    input = layers[1].dimshuffle(0, 2, 3, 1).reshape((-1, 256))
+    input = layers[1].output.dimshuffle(0, 2, 3, 1).reshape((-1, 256))
 
     layer_h0 = HiddenLayerDropout(
         rng=rng,
@@ -388,5 +388,35 @@ def extend_net(layers, classes, nkerns,
                                   n_out=classes)
 
     new_layers = [layer_h2, layer_h1, layer_h0]
+    all_layers = new_layers + layers[1:]
+    return all_layers, new_layers
+
+
+def extend_net1(layers, classes, nkerns,
+                activation=T.tanh, bias=0.0):
+    """
+    Extends net with hidden layers.
+    """
+    assert(len(nkerns) == 1)
+    rng = numpy.random.RandomState(23456)
+    DROPOUT_RATE = 0.5
+
+    input = layers[1].output.dimshuffle(0, 2, 3, 1).reshape((-1, 256))
+
+    layer_h0 = HiddenLayerDropout(
+        rng=rng,
+        input=input,
+        n_in=256,
+        n_out=nkerns[0],
+        activation=activation, bias=bias,
+        dropout_p=DROPOUT_RATE
+    )
+
+    # classify the values of the fully-connected sigmoidal layer
+    layer_h1 = LogisticRegression(input=layer_h0.output,
+                                  n_in=nkerns[0],
+                                  n_out=classes)
+
+    new_layers = [layer_h1, layer_h0]
     all_layers = new_layers + layers[1:]
     return all_layers, new_layers
