@@ -116,3 +116,29 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     '''
 
     return pyr_levels
+
+
+def yuv(img, requested_shape):
+    '''
+    Image is cropped and filled to static shape size, then
+    YUV transformation, laplacian pyramid and block normalization
+    are applied to an image.
+    '''
+
+    logger.debug("Image has shape %s", img.shape)
+    #   rotate image for 90, if in portrait orientation
+    if img.shape[0] > img.shape[1]:
+        img = cv2.transpose(img)
+
+    #   crop and fill to shape
+    img = crop_to_shape(img, requested_shape)
+    img = fill_to_shape(img, requested_shape)
+
+    #   convert to YUV (inplace)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+
+    float_img = img.astype('float32')
+    float_img = float_img / 255.0
+    float_img = np.rollaxis(float_img, 2, 0)
+
+    return float_img
