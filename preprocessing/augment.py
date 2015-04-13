@@ -58,9 +58,9 @@ def fast_warp_rgb(img, tf, output_shape=(42, 42), mode='reflect'):
     return img_wf
 
 
-def random_perturbation_transform(
+def random_perturbation_params(
         zoom_range, rotation_range, shear_range, translation_range,
-        do_flip=True, image_shape=(70, 70)):
+        do_flip=True):
 
     # random shift
     shift_x, shift_y = 0, 0
@@ -94,9 +94,27 @@ def random_perturbation_transform(
     # for a zoom factor this sampling approach makes more sense.
     # the range should be multiplicatively symmetric, so [1/1.1, 1.1]
     # instead of [0.9, 1.1] makes more sense.
-    return build_augmentation_transform(
-        zoom, rotation, shear, translation,
-        image_shape=image_shape)
+    return {'zoom': zoom, 'rotation': rotation, 'shear': shear,
+            'translation': translation}
+
+
+def _perturb_image(img, transformation, output_shape):
+    """
+    Perturb one image.
+    """
+    if img.ndim == 2:  # if image is grayscale (1 channel)
+        return fast_warp_grayscale(
+            img, transformation, output_shape, mode='reflect')
+    elif img.ndim == 3:  # if image is color (3 channels)
+        return fast_warp_rgb(
+            img, transformation, output_shape, mode='reflect')
+    else:
+        return None
+
+
+def _div(tup, i):
+    ''' Divide tuple with int '''
+    return tuple([x / i for x in tup])
 
 
 def perturb_image(
@@ -107,27 +125,25 @@ def perturb_image(
     if len(output_shape) != 2:
         raise RuntimeError("Output shape must have 2 dims.")
 
-    augmentation_params['image_shape'] = output_shape
-    tform_augment = random_perturbation_transform(**augmentation_params)
+    perturb_params = random_perturbation_params(**augmentation_params)
+    perturb_params['image_shape'] = output_shape
+    # print "\nOriginal params", perturb_params
 
     if type(img) is tuple or type(img) is list:
         out_list = []
         for i in img:
-            if i.ndim == 2:  # if image is grayscale (1 channel)
-                new_img = fast_warp_grayscale(
-                    i, tform_augment, output_shape, mode='reflect')
-            elif i.ndim == 3:  # if image is color (3 channels)
-                new_img = fast_warp_rgb(
-                    i, tform_augment, output_shape, mode='reflect')
+            #   img size compared to first image
+            scale = int(round(1.0 * img[0].shape[-1] / i.shape[-1]))
+            img_perturb_params = perturb_params.copy()
+            img_perturb_params['translation'] = _div(
+                img_perturb_params['translation'], scale)
+            img_perturb_params['image_shape'] = _div(output_shape, scale)
+            # print "new params", img_perturb_params
+            tform_augment = build_augmentation_transform(**img_perturb_params)
+            out_shp = img_perturb_params['image_shape']
 
-            out_list.append(new_img)
+            out_list.append(_perturb_image(i, tform_augment, out_shp))
         return out_list
     else:
-        if img.ndim == 2:
-            return fast_warp_grayscale(
-                img, tform_augment, output_shape, mode='reflect')
-        elif img.ndim == 3:
-            return fast_warp_rgb(
-                img, tform_augment, output_shape, mode='reflect')
-        else:
-            return None
+        tform_augment = build_augmentation_transform(**perturb_params)
+        return _perturb_image(img, tform_augment, output_shape)
