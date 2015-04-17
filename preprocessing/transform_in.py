@@ -94,11 +94,13 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     for i in xrange(n_layers):
         pyr_levels[i] /= 255.0
 
+    '''
     #   normalize blocks of every channel
     for i in xrange(n_layers):
         normalize(pyr_levels[i][:, :, 0])  # Y
         normalize(pyr_levels[i][:, :, 1])  # U
         normalize(pyr_levels[i][:, :, 2])  # V
+    '''
 
     # print "Before axis swap\n", pyr_levels[0][:5, :5, 0]
     for i in xrange(n_layers):

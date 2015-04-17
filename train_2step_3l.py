@@ -14,10 +14,10 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_net import build_net, build_net2, extend_net1
+from helpers.build_multiscale import build_multiscale, extend_net_w1l
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
-from preprocessing.perturb_dataset import change_train_set
+from preprocessing.perturb_dataset import change_train_set_multiscale
 from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 
@@ -80,24 +80,19 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     index = T.lscalar()  # index to a [mini]batch
 
     # input is presented as (batch, channel, x, y)
-    x = T.tensor4('x')
+    x0 = T.tensor4('x')
+    x2 = T.tensor4('x')
+    x4 = T.tensor4('x')
     # matrix row - batch index, column label of pixel
     # every column is a list of pixel labels (image matrix reshaped to list)
     y = T.imatrix('y')
 
     # create all layers
-    '''
-    layers, out_shape = build_net(x, y, batch_size, classes=NCLASSES.
-                                  image_shape=image_shape,
-                                  nkerns=[16, 64, 256],
-                                  sparse=True)
-
-    '''
-    layers, out_shape = build_net2(x, y, batch_size, classes=NCLASSES,
-                                   image_shape=image_shape,
-                                   nkerns=[32, 128, 256, 256],
-                                   sparse=True,
-                                   activation=ReLU, bias=0.001)
+    layers, out_shape = build_multiscale(
+        x0, x2, x4, y, batch_size, classes=NCLASSES,
+        image_shape=image_shape,
+        nkerns=[32, 128, 256, 256],
+        sparse=True, activation=ReLU, bias=0.001)
     logger.info("Image out shape is %s", out_shape)
 
     # last layer, log reg
@@ -115,9 +110,16 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     x_train_shared, y_train_shared = \
         shared_dataset((np.zeros_like(x_train),
                         np.zeros(y_train_shape)))
+    x2_train_shared = theano.shared(np.zeros_like(x_train_allscales[1]),
+                                    borrow=True)
+    x4_train_shared = theano.shared(np.zeros_like(x_train_allscales[2]),
+                                    borrow=True)
+
     x_test_shared, y_test_shared = \
         shared_dataset((x_test,
                         y_test_downscaled))
+    x2_test_shared = theano.shared(x_test_allscales[1], borrow=True)
+    x4_test_shared = theano.shared(x_test_allscales[2], borrow=True)
 
     # When storing data on the GPU it has to be stored as floats
     # therefore we will store the labels as ``floatX`` as well
@@ -140,7 +142,9 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         (log_reg_layer.errors(y_flat),
          log_reg_layer.negative_log_likelihood(y_flat)),
         givens={
-            x: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
+            x4: x4_test_shared[index * batch_size: (index + 1) * batch_size],
             y: y_test_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
@@ -165,12 +169,15 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         cost,
         updates=gradient_updates_rms(cost, params, 0.0001, 0.8),
         givens={
-            x: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
+            x4: x4_train_shared[index * batch_size: (index + 1) * batch_size],
             y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
-    pre_fn = lambda: change_train_set(
-        x_train_shared, x_train,
+    pre_fn = lambda: change_train_set_multiscale(
+        [x_train_shared, x2_train_shared, x4_train_shared],
+        [x_train_allscales[0], x_train_allscales[1], x_train_allscales[2]],
         y_train_shared, y_train,
         out_shape)
 
@@ -186,7 +193,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     logger.info("... training model")
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
-        1, train_model, test_model, n_train_batches, n_test_batches,
+        350, train_model, test_model, n_train_batches, n_test_batches,
         layers, pre_fn)
     end_time = time.clock()
 
@@ -197,7 +204,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
                            (end_time - start_time) / 60.))
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net1(
+    layers, new_layers = extend_net_w1l(
         layers, NCLASSES,
         nkerns=[1000], activation=ReLU, bias=0.001)
 
@@ -207,7 +214,9 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         (layers[0].errors(y_flat),
          layers[0].negative_log_likelihood(y_flat)),
         givens={
-            x: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
+            x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
+            x4: x4_test_shared[index * batch_size: (index + 1) * batch_size],
             y: y_test_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
@@ -223,8 +232,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    cost2 = layers[0].negative_log_likelihood(y_flat)\
-        + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
+    cost2 = layers[0].negative_log_likelihood(y_flat)
 
     # train_model is a function that updates the model parameters
     train_model2 = theano.function(
@@ -232,7 +240,9 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
         cost2,
         updates=gradient_updates_rms(cost2, params2, 0.0001, 0.8),
         givens={
-            x: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
+            x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
+            x4: x4_train_shared[index * batch_size: (index + 1) * batch_size],
             y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
@@ -273,8 +283,8 @@ if __name__ == '__main__':
     # evaluate_conv()
     if len(sys.argv) == 2:
         params = try_pickle_load(sys.argv[1])
-        evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=N_EPOCHS,
+        evaluate_conv('./data/iccv09Data/theano_datasets/', n_epochs=N_EPOCHS,
                       batch_size=BATCH_SIZE, net_weights=params)
     else:
-        evaluate_conv('./data/MSRC/theano_datasets/', n_epochs=N_EPOCHS,
+        evaluate_conv('./data/iccv09Data/theano_datasets/', n_epochs=N_EPOCHS,
                       batch_size=BATCH_SIZE)

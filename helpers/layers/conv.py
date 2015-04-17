@@ -24,6 +24,7 @@ class ConvPoolLayer(object):
     def __init__(self, rng, input, filter_shape, image_shape,
                  poolsize=(2, 2), only_conv=False, activation=T.tanh,
                  bias=0.0, stride=(1, 1), ignore_border_pool=True,
+                 border_mode='valid',
                  W=None, b=None):
         """
         Allocate layer with shared variable internal parameters.
@@ -59,7 +60,7 @@ class ConvPoolLayer(object):
         #   if layer is sparse, half of values will be zeroed
         filter_shape_sparse = list(filter_shape)
         filter_shape_sparse[1] = n_in_feature_maps
-        
+
         assert image_shape[1] >= maps_to_use
         self.input = input
 
@@ -96,7 +97,7 @@ class ConvPoolLayer(object):
             #   zero out unused weights
             for ind, tzo_row in enumerate(to_zero_out):
                 W_values[ind, tzo_row] = 0.
-        
+
         if W is None:
             self.W = theano.shared(
                 numpy.asarray(
@@ -121,9 +122,9 @@ class ConvPoolLayer(object):
             filters=self.W,
             filter_shape=filter_shape_sparse,
             image_shape=image_shape,
-            subsample=stride
+            subsample=stride,
+            border_mode=border_mode
         )
-
 
         # mode where this layer is just a bank of filters
         if only_conv:
@@ -142,7 +143,7 @@ class ConvPoolLayer(object):
             pooled_out = downsample.max_pool_2d(
                 input=tanh_out,
                 ds=poolsize,
-                ignore_border=ignore_border_pool
+                ignore_border=ignore_border_pool,
             )
 
             self.output = pooled_out
@@ -214,7 +215,7 @@ def test_gradient():
 
     print 'Input'
     print input.get_value()
-    
+
     x = T.tensor4('x')
     y = T.ivector('y')
 
@@ -260,16 +261,16 @@ def test_gradient():
         updates=updates,
         givens={x: input, y: out}
     )
-    
+
     test_model = theano.function(
         [],
         layer1.errors(y),
-        givens={ x: input, y: out }
+        givens={x: input, y: out}
     )
 
     print 'Conv output'
     print compute_conv_out()
-    
+
     print ('Test error of %.2f %%' % (100.0 * test_model()))
 
     print 'Weights before train'
@@ -284,7 +285,7 @@ def test_gradient():
 
     print 'Weights after train2'
     print layer0.W.get_value()
-    
+
     print ('Test error of %.2f %%' % test_model())
 
 
@@ -292,4 +293,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     test_layer()
-    #test_gradient()
+    # test_gradient()

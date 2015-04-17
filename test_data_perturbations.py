@@ -39,7 +39,7 @@ def main(path, marked_path=None):
         imgs_to_perturb = [img[i] for img in imgs_mscale]
         # if we loaded markings, add marked image to list of imgs to perturb
         if perturbed_marks is not None:
-            imgs_to_perturb .append(marked_imgs[i])
+            imgs_to_perturb.append(marked_imgs[i])
 
         ret_list = perturb_image(imgs_to_perturb, image_shape)
         for n_scale in range(n_scales):

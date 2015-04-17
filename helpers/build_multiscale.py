@@ -5,24 +5,10 @@ import theano.tensor as T
 from helpers.layers.log_reg import LogisticRegression
 from helpers.layers.conv import ConvPoolLayer
 from helpers.layers.hidden_dropout import HiddenLayerDropout
+# from helpers.build_net import reduce_image_dim
 
 
 logger = logging.getLogger(__name__)
-
-
-def reduce_image_dim(image_shape, filter_size, pooling_size):
-    """
-    Helper function for calculation of image_dimensions
-
-    First reduces dimension by filter_size (x - filer_size + 1)
-    then divides it by pooling factor  ( x // 2)
-
-    image_shape; tuple
-    filter_size: int
-    pooling_size: int
-    """
-
-    return map(lambda x: (x - filter_size + 1) // pooling_size, image_shape)
 
 
 def upsample(x, factor):
@@ -34,10 +20,47 @@ def upsample(x, factor):
     factor: int
         upsampling factor
     """
-    shp = x.shape
-    x_1 = T.extra_ops.repeat(x, factor, axis=len(shp)-2)
-    x_2 = T.extra_ops.repeat(x_1, factor, axis=len(shp)-1)
+    x_1 = T.extra_ops.repeat(x, factor, axis=x.ndim-2)
+    x_2 = T.extra_ops.repeat(x_1, factor, axis=x.ndim-1)
     return x_2
+
+
+def div_tuple(tup, n):
+    """ Divide every element of tuple by n """
+    return tuple([x/n for x in tup])
+
+
+def reduce_img_dim(img_shp, ignore_border=True):
+    """ Reduces img dim by factor 2, if ignore_border is False,
+    round to higher value, otherwise on lower """
+    to_add = 1 if ignore_border is False else 0
+    new_shp = [(x+to_add) // 2 for x in img_shp]
+    return tuple(new_shp)
+
+
+def crop_to_size(x, img_size, filter_size):
+    """
+    Crops last two dims of theano tensor x to img_size.
+    Filter_size is parameter so theano can optimize expression at compile time
+
+    x: theano 4d tensor
+        Input tensor
+    img_size: 2d tuple
+        Image size (last two dims of tensor)
+    filter_size: int
+        Size of conv filter
+
+    Returns: theano 4d tensor
+        cropped theano tensor
+    """
+    assert(type(img_size) is tuple)
+    assert(type(filter_size) is int)
+    assert(len(img_size) == 2)
+    assert((filter_size - 1) % 2 == 0)
+
+    start_ind = (filter_size - 1) / 2
+    return x[:, :, start_ind:(start_ind + img_size[0]),
+             start_ind:(start_ind + img_size[1])]
 
 
 def build_scale(x, batch_size, image_shape, nkerns, nfilters, sparse,
@@ -83,7 +106,8 @@ def build_scale(x, batch_size, image_shape, nkerns, nfilters, sparse,
         input=layer0_Y_input,
         image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
         filter_shape=(20, 1, nfilters[0], nfilters[0]),
-        activation=activation, bias=bias,
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
         W=ws[0], b=bs[0],
     )
 
@@ -93,7 +117,8 @@ def build_scale(x, batch_size, image_shape, nkerns, nfilters, sparse,
         input=layer0_UV_input,
         image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
         filter_shape=(12, 2, nfilters[0], nfilters[0]),
-        activation=activation, bias=bias,
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
         W=ws[1], b=bs[1],
     )
 
@@ -101,45 +126,56 @@ def build_scale(x, batch_size, image_shape, nkerns, nfilters, sparse,
     layer0_output = T.concatenate([layer0_Y.output,
                                    layer0_UV.output], axis=1)
 
+    image_shape1 = reduce_img_dim(image_shape, False)
+    layer1_input = crop_to_size(layer0_output, image_shape1, nfilters[0])
+
     # Construct the second convolutional pooling layer
-    image_shape1 = reduce_image_dim(image_shape, nfilters[0], 2)
     filters_to_use1 = nkerns[0] // 2 if sparse else nkerns[0]
     layer1 = ConvPoolLayer(
         rng,
-        input=layer0_output,
+        input=layer1_input,
         image_shape=(batch_size, nkerns[0], image_shape1[0], image_shape1[1]),
         filter_shape=(nkerns[1], filters_to_use1, nfilters[1], nfilters[1]),
-        activation=activation, bias=bias,
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
         W=ws[2], b=bs[2],
     )
 
+    image_shape2 = reduce_img_dim(image_shape1, False)
+    layer2_input = crop_to_size(layer1.output, image_shape2, nfilters[1])
+
     # Construct the third convolutional pooling layer
-    image_shape2 = reduce_image_dim(image_shape1, nfilters[1], 2)
     filters_to_use2 = nkerns[1] // 2 if sparse else nkerns[1]
     layer2 = ConvPoolLayer(
         rng,
-        input=layer1.output,
+        input=layer2_input,
         image_shape=(batch_size, nkerns[1], image_shape2[0], image_shape2[1]),
         filter_shape=(nkerns[2], filters_to_use2, nfilters[2], nfilters[2]),
-        activation=activation, bias=bias,
-        poolsize=(1, 1),
+        activation=activation, bias=bias, border_mode='full',
+        poolsize=(1, 1), ignore_border_pool=False,
         W=ws[3], b=bs[3],
     )
 
+    image_shape3 = image_shape2
+    layer3_input = crop_to_size(layer2.output, image_shape3, nfilters[2])
+
     # Construct the 4th convolutional pooling layer
-    image_shape3 = reduce_image_dim(image_shape2, nfilters[2], 1)
     filters_to_use3 = nkerns[2] // 2 if sparse else nkerns[2]
     layer3 = ConvPoolLayer(
         rng,
-        input=layer2.output,
+        input=layer3_input,
         image_shape=(batch_size, nkerns[2], image_shape3[0], image_shape3[1]),
         filter_shape=(nkerns[3], filters_to_use3, nfilters[3], nfilters[3]),
-        activation=activation, bias=bias,
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
         W=ws[4], b=bs[4],
     )
-    image_shape4 = reduce_image_dim(image_shape3, nfilters[3], 2)
+    image_shape4 = reduce_img_dim(image_shape3, False)
+    layer3_output = crop_to_size(layer3.output, image_shape4, nfilters[3])
+    logger.info("Scale output has size of %s", image_shape4)
 
-    return [layer3, layer2, layer1, layer0_UV, layer0_Y], image_shape4
+    layers = [layer3, layer2, layer1, layer0_UV, layer0_Y]
+    return layers, image_shape4, layer3_output
 
 
 def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
@@ -174,22 +210,24 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     logger.info('... building the model')
 
     rng = numpy.random.RandomState(23455)
-    scale0, img_shp = build_scale(
+    layers0, img_shp, out0 = build_scale(
         x0, batch_size, image_shape, nkerns, nfilters,
         sparse, activation, bias, rng, None)
-    scale2, _ = build_scale(
-        x2, batch_size, image_shape, nkerns, nfilters,
-        sparse, activation, bias, rng, scale0)
-    scale4, _ = build_scale(
-        x4, batch_size, image_shape, nkerns, nfilters,
-        sparse, activation, bias, rng, scale2)
+    image_shape_s2 = div_tuple(image_shape, 2)
+    layers2, _, out2 = build_scale(
+        x2, batch_size, image_shape_s2, nkerns, nfilters,
+        sparse, activation, bias, rng, layers0)
+    image_shape_s4 = div_tuple(image_shape_s2, 2)
+    layers4, _, out4 = build_scale(
+        x4, batch_size, image_shape_s4, nkerns, nfilters,
+        sparse, activation, bias, rng, layers2)
 
-    scale0_out = scale0[0].output.dimshuffle(0, 2, 3, 1).\
+    scale0_out = out0.dimshuffle(0, 2, 3, 1).\
         reshape((-1, nkerns[3]))
-    scale2_out = upsample(scale2[0].output, 2).dimshuffle(0, 2, 3, 1).\
+    scale2_out = upsample(out2, 2).dimshuffle(0, 2, 3, 1).\
         reshape((-1, nkerns[3]))
-    scale4_out = upsample(scale4[0].output, 4).dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[3]))
+    scale4_out = upsample(out4, 4)[:, :, :img_shp[0], :img_shp[1]].\
+        dimshuffle(0, 2, 3, 1).reshape((-1, nkerns[3]))
 
     layer4_input = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
 
@@ -199,8 +237,8 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
                                     n_out=classes)
 
     # list of all layers
-    layers = [layer_last] + scale0
-    return layers, tuple(img_shp)
+    layers = [layer_last] + layers0
+    return layers, img_shp
 
 
 def extend_net_w2l(layers, classes, nkerns,
