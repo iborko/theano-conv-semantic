@@ -88,7 +88,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     y = T.imatrix('y')
 
     # create all layers
-    layers, out_shape = build_multiscale(
+    layers, out_shape, conv_out = build_multiscale(
         x0, x2, x4, y, batch_size, classes=NCLASSES,
         image_shape=image_shape,
         nkerns=[32, 128, 256, 256],
@@ -193,7 +193,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     logger.info("... training model")
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
-        350, train_model, test_model, n_train_batches, n_test_batches,
+        300, train_model, test_model, n_train_batches, n_test_batches,
         layers, pre_fn)
     end_time = time.clock()
 
@@ -205,7 +205,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
 
     logger.info('Starting second step, with Dropout hidden layers')
     layers, new_layers = extend_net_w1l(
-        layers, NCLASSES,
+        conv_out, layers, NCLASSES,
         nkerns=[1000], activation=ReLU, bias=0.001)
 
     # create a function to compute the mistakes that are made by the model

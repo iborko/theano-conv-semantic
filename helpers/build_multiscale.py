@@ -238,10 +238,10 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
 
     # list of all layers
     layers = [layer_last] + layers0
-    return layers, img_shp
+    return layers, img_shp, layer4_input
 
 
-def extend_net_w2l(layers, classes, nkerns,
+def extend_net_w2l(input, layers, classes, nkerns,
                    activation=T.tanh, bias=0.0):
     """
     Extends net with hidden layers.
@@ -250,12 +250,10 @@ def extend_net_w2l(layers, classes, nkerns,
     rng = numpy.random.RandomState(23456)
     DROPOUT_RATE = 0.5
 
-    input = layers[1].output.dimshuffle(0, 2, 3, 1).reshape((-1, 256))
-
     layer_h0 = HiddenLayerDropout(
         rng=rng,
         input=input,
-        n_in=256,
+        n_in=256 * 3,
         n_out=nkerns[0],
         activation=activation, bias=bias,
         dropout_p=DROPOUT_RATE
@@ -280,7 +278,7 @@ def extend_net_w2l(layers, classes, nkerns,
     return all_layers, new_layers
 
 
-def extend_net_w1l(layers, classes, nkerns,
+def extend_net_w1l(input, layers, classes, nkerns,
                    activation=T.tanh, bias=0.0):
     """
     Extends net with hidden layers.
@@ -289,12 +287,10 @@ def extend_net_w1l(layers, classes, nkerns,
     rng = numpy.random.RandomState(23456)
     DROPOUT_RATE = 0.5
 
-    input = layers[1].output.dimshuffle(0, 2, 3, 1).reshape((-1, 256))
-
     layer_h0 = HiddenLayerDropout(
         rng=rng,
         input=input,
-        n_in=256,
+        n_in=256 * 3,
         n_out=nkerns[0],
         activation=activation, bias=bias,
         dropout_p=DROPOUT_RATE
