@@ -5,7 +5,6 @@ import theano.tensor as T
 from helpers.layers.log_reg import LogisticRegression
 from helpers.layers.conv import ConvPoolLayer
 from helpers.layers.hidden_dropout import HiddenLayerDropout
-# from helpers.build_net import reduce_image_dim
 
 
 logger = logging.getLogger(__name__)
@@ -63,8 +62,111 @@ def crop_to_size(x, img_size, filter_size):
              start_ind:(start_ind + img_size[1])]
 
 
-def build_scale(x, batch_size, image_shape, nkerns, nfilters, sparse,
-                activation, bias, rng, layers):
+def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
+                   activation, bias, rng, layers):
+    """
+    x: symbolic theano variable
+        input data
+    batch_size: int
+        size of minibatch
+    image_size: 2-tuple
+        size of input image
+    nkerns: list of ints
+        kernels dimension (x and y dimension are the same)
+    nfilters: list of ints
+        number of filter banks per layer
+    sparse: boolean
+        is network sparse?
+    activation: theano symbolic expression
+        activation function
+    bias: float
+        bias amount
+    rng: numpy random generator
+        random generator used for generating weights
+    layers: list of layer objects (ConvLayers)
+        list of layers used to build layers of current scale
+    """
+    assert(len(nkerns) == len(nfilters))
+
+    layer0_Y_input = x[:, [0]]  # Y channel
+    layer0_UV_input = x[:, [1, 2]]  # U, V channels
+
+    ws = [None] * (len(nfilters) + 1)
+    bs = [None] * len(ws)
+    if layers is not None:
+        for i, layer in enumerate(layers[::-1]):
+            ws[i] = layer.W
+            bs[i] = layer.b
+
+    # Construct the first convolutional pooling layer
+    #  layer0 has 20 filter maps for U and V channel
+    layer0_Y = ConvPoolLayer(
+        rng,
+        input=layer0_Y_input,
+        image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
+        filter_shape=(20, 1, nfilters[0], nfilters[0]),
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
+        W=ws[0], b=bs[0],
+    )
+
+    #  layer0 has 12 filter maps for U and V channel
+    layer0_UV = ConvPoolLayer(
+        rng,
+        input=layer0_UV_input,
+        image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
+        filter_shape=(12, 2, nfilters[0], nfilters[0]),
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
+        W=ws[1], b=bs[1],
+    )
+
+    # stack outputs from Y, U, V channel layer
+    layer0_output = T.concatenate([layer0_Y.output,
+                                   layer0_UV.output], axis=1)
+
+    image_shape1 = reduce_img_dim(image_shape, False)
+    layer1_input = crop_to_size(layer0_output, image_shape1, nfilters[0])
+
+    # Construct the second convolutional pooling layer
+    filters_to_use1 = nkerns[0] // 2 if sparse else nkerns[0]
+    layer1 = ConvPoolLayer(
+        rng,
+        input=layer1_input,
+        image_shape=(batch_size, nkerns[0], image_shape1[0], image_shape1[1]),
+        filter_shape=(nkerns[1], filters_to_use1, nfilters[1], nfilters[1]),
+        activation=activation, bias=bias, border_mode='full',
+        ignore_border_pool=False,
+        W=ws[2], b=bs[2],
+    )
+
+    image_shape2 = reduce_img_dim(image_shape1, False)
+    layer2_input = crop_to_size(layer1.output, image_shape2, nfilters[1])
+
+    # Construct the third convolutional pooling layer
+    filters_to_use2 = nkerns[1] // 2 if sparse else nkerns[1]
+    layer2 = ConvPoolLayer(
+        rng,
+        input=layer2_input,
+        image_shape=(batch_size, nkerns[1], image_shape2[0], image_shape2[1]),
+        filter_shape=(nkerns[2], filters_to_use2, nfilters[2], nfilters[2]),
+        activation=activation, bias=bias, border_mode='full',
+        poolsize=(1, 1), ignore_border_pool=False,
+        only_conv=True,
+        W=ws[3], b=bs[3],
+    )
+
+    image_shape3 = image_shape2
+    layer2_output = crop_to_size(layer2.output, image_shape3, nfilters[2])
+
+    logger.info("Scale output has size of %s", image_shape3)
+
+    layers = [layer2, layer1, layer0_UV, layer0_Y]
+    return layers, image_shape3, layer2_output
+
+
+def build_scale_4l(x, batch_size, image_shape, nkerns, nfilters, sparse,
+                   activation, bias, rng, layers):
     """
     x: symbolic theano variable
         input data
@@ -199,41 +301,41 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     returns: list
         list of all layers, first layer is actually the last (log reg)
     """
-    # net has 4 conv layers
-    assert(len(nkerns) == 4)
+    # net has 3 conv layers
+    assert(len(nkerns) == 3)
     # this version has to have 16 filters in first layer
     assert(nkerns[0] == 32)
 
     # convolution kernel size
-    nfilters = [5, 5, 3, 3]
+    nfilters = [7, 7, 5]
 
     logger.info('... building the model')
 
     rng = numpy.random.RandomState(23455)
-    layers0, img_shp, out0 = build_scale(
+    layers0, img_shp, out0 = build_scale_3l(
         x0, batch_size, image_shape, nkerns, nfilters,
         sparse, activation, bias, rng, None)
     image_shape_s2 = div_tuple(image_shape, 2)
-    layers2, _, out2 = build_scale(
+    layers2, _, out2 = build_scale_3l(
         x2, batch_size, image_shape_s2, nkerns, nfilters,
         sparse, activation, bias, rng, layers0)
     image_shape_s4 = div_tuple(image_shape_s2, 2)
-    layers4, _, out4 = build_scale(
+    layers4, _, out4 = build_scale_3l(
         x4, batch_size, image_shape_s4, nkerns, nfilters,
         sparse, activation, bias, rng, layers2)
 
     scale0_out = out0.dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[3]))
+        reshape((-1, nkerns[-1]))
     scale2_out = upsample(out2, 2).dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[3]))
-    scale4_out = upsample(out4, 4)[:, :, :img_shp[0], :img_shp[1]].\
-        dimshuffle(0, 2, 3, 1).reshape((-1, nkerns[3]))
+        reshape((-1, nkerns[-1]))
+    scale4_out = upsample(out4, 4).dimshuffle(0, 2, 3, 1).\
+        reshape((-1, nkerns[-1]))
 
     layer4_input = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
 
     # classify the values of the fully-connected sigmoidal layer
     layer_last = LogisticRegression(input=layer4_input,
-                                    n_in=nkerns[3] * 3,  # 3 scales
+                                    n_in=nkerns[-1] * 3,  # 3 scales
                                     n_out=classes)
 
     # list of all layers
@@ -247,7 +349,7 @@ def extend_net_w2l(input, layers, classes, nkerns,
     Extends net with hidden layers.
     """
     assert(len(nkerns) == 2)
-    rng = numpy.random.RandomState(23456)
+    rng = numpy.random.RandomState(23454)
     DROPOUT_RATE = 0.5
 
     layer_h0 = HiddenLayerDropout(

@@ -14,7 +14,7 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_multiscale import build_multiscale, extend_net_w1l
+from helpers.build_multiscale import build_multiscale, extend_net_w2l
 from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
@@ -27,7 +27,7 @@ ReLU = lambda x: T.maximum(x, 0)
 lRelU = lambda x: T.maxium(x, 1.0/3.0*x)  # leaky ReLU
 
 NCLASSES = 24
-N_EPOCHS = 100
+N_EPOCHS = 150
 BATCH_SIZE = 8
 
 
@@ -91,8 +91,8 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     layers, out_shape, conv_out = build_multiscale(
         x0, x2, x4, y, batch_size, classes=NCLASSES,
         image_shape=image_shape,
-        nkerns=[32, 128, 256, 256],
-        sparse=True, activation=ReLU, bias=0.001)
+        nkerns=[32, 128, 256],
+        sparse=True)
     logger.info("Image out shape is %s", out_shape)
 
     # last layer, log reg
@@ -193,7 +193,7 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
     logger.info("... training model")
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
-        300, train_model, test_model, n_train_batches, n_test_batches,
+        350, train_model, test_model, n_train_batches, n_test_batches,
         layers, pre_fn)
     end_time = time.clock()
 
@@ -204,9 +204,9 @@ def evaluate_conv(path, n_epochs, batch_size, net_weights=None):
                            (end_time - start_time) / 60.))
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net_w1l(
+    layers, new_layers = extend_net_w2l(
         conv_out, layers, NCLASSES,
-        nkerns=[1000], activation=ReLU, bias=0.001)
+        nkerns=[1000, 800])
 
     # create a function to compute the mistakes that are made by the model
     test_model2 = theano.function(
