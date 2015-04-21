@@ -307,7 +307,7 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     assert(nkerns[0] == 32)
 
     # convolution kernel size
-    nfilters = [7, 7, 5]
+    nfilters = [7, 7, 7]
 
     logger.info('... building the model')
 
