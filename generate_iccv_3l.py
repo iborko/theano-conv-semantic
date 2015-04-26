@@ -92,8 +92,6 @@ def generate_targets(samples):
 
     samples: list
         list of Sample objects
-    class_counter: ClassCounter object
-        object used for generating class markings (class ordinal numbers)
 
     returns: np.array
         array of class ordinal numbers

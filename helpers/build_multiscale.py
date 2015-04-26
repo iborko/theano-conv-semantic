@@ -104,7 +104,7 @@ def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
         rng,
         input=layer0_Y_input,
         image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
-        filter_shape=(20, 1, nfilters[0], nfilters[0]),
+        filter_shape=(10, 1, nfilters[0], nfilters[0]),
         activation=activation, bias=bias, border_mode='full',
         ignore_border_pool=False,
         W=ws[0], b=bs[0],
@@ -115,7 +115,7 @@ def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
         rng,
         input=layer0_UV_input,
         image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
-        filter_shape=(12, 2, nfilters[0], nfilters[0]),
+        filter_shape=(6, 2, nfilters[0], nfilters[0]),
         activation=activation, bias=bias, border_mode='full',
         ignore_border_pool=False,
         W=ws[1], b=bs[1],
@@ -304,10 +304,10 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     # net has 3 conv layers
     assert(len(nkerns) == 3)
     # this version has to have 16 filters in first layer
-    assert(nkerns[0] == 32)
+    assert(nkerns[0] == 16)
 
     # convolution kernel size
-    nfilters = [7, 7, 5]
+    nfilters = [7, 7, 7]
 
     logger.info('... building the model')
 

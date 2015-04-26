@@ -7,7 +7,35 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def gradient_updates_SGD(cost, params, learning_rate, decrease_rate=1.0):
+class UpdateParameters(object):
+    """
+    Holds parameters for updating weights, e.g. learning rate
+    """
+
+    def __init__(self, updates, learning_rate):
+        """
+        updates: list of tuples
+            list of pairs of theano update rules
+        learning_rate: theano shared variable
+            shared variable containing learning rate
+        """
+        self.updates = updates
+        self.learning_rate = learning_rate
+
+    def lower_rate_by_factor(self, factor):
+        """
+        Updates learning rate by factor:
+            rate = rate * factor
+
+        factor: float
+            a factor that reduces value of learning rate
+        """
+        self.learning_rate.set_value(self.learning_rate.get_value() * factor)
+        logger.info("Learning rate lowered to %f",
+                    self.learning_rate.get_value())
+
+
+def gradient_updates_SGD(cost, params, learning_rate):
     '''
     Compute updates for gradient descent with momentum
 
@@ -23,21 +51,14 @@ def gradient_updates_SGD(cost, params, learning_rate, decrease_rate=1.0):
             will be no decrease. rate *= decrease_Rate
 
     :returns:
-        updates : list
-            List of updates, one for each parameter
+        UpdateParameters object
     '''
-    # Make sure decrease_rate has valid value
-    assert decrease_rate <= 1 and decrease_rate > 0
-
     # List of update steps for each parameter
     updates = []
 
     # shared variable for learning rate
     rate = theano.shared(np.array(learning_rate,
                          dtype=theano.config.floatX))
-
-    # update learning rate by decreasing it's value
-    updates.append((rate, rate * decrease_rate))
 
     # create a list of gradients for all model parameters
     # cost - 0-d tensor scalar with respect to which we are differentiating
@@ -50,7 +71,7 @@ def gradient_updates_SGD(cost, params, learning_rate, decrease_rate=1.0):
         #  gradient.
         updates.append((param, param - learning_rate * grad))
 
-    return updates
+    return UpdateParameters(updates, rate)
 
 
 def gradient_updates_momentum(cost, params, learning_rate, momentum):
@@ -69,19 +90,21 @@ def gradient_updates_momentum(cost, params, learning_rate, momentum):
             descent) and less than 1
 
     :returns:
-        updates : list
-            List of updates, one for each parameter
+        UpdateParameters object
     '''
     # Make sure momentum is a sane value
     assert momentum < 1 and momentum >= 0
 
-    # List of update steps for each parameter
-    updates = []
+    # shared variable for learning rate
+    rate = theano.shared(np.array(learning_rate,
+                         dtype=theano.config.floatX))
 
     # create a list of gradients for all model parameters
     # cost - 0-d tensor scalar with respect to which we are differentiating
     grads = T.grad(cost, params)
 
+    # List of update steps for each parameter
+    updates = []
     for param, grad in zip(params, grads):
 
         # For each parameter, we'll create a param_update shared variable.
@@ -95,11 +118,11 @@ def gradient_updates_momentum(cost, params, learning_rate, momentum):
         #  gradient. However, we also "mix in" the previous step according to
         #  the given momentum value. Note that when updating param_update, we
         #  are using its old value and also the new gradient step.
-        updates.append((param, param - learning_rate * param_update))
+        updates.append((param, param - rate * param_update))
 
         updates.append((param_update,
                         momentum * param_update + (1. - momentum) * grad))
-    return updates
+    return UpdateParameters(updates, rate)
 
 
 def gradient_updates_rprop(cost, params, learning_rate, increase=1.2, decrease=0.5):
@@ -148,6 +171,10 @@ def gradient_updates_rprop(cost, params, learning_rate, increase=1.2, decrease=0
     min_step = 1e-6
     max_step = 50
 
+    # shared variable for learning rate
+    rate = theano.shared(np.array(learning_rate,
+                         dtype=theano.config.floatX))
+
     # create a list of gradients for all parameters
     grads = T.grad(cost, params)
 
@@ -156,7 +183,7 @@ def gradient_updates_rprop(cost, params, learning_rate, increase=1.2, decrease=0
         grad_prev = theano.shared(np.zeros_like(param.get_value()),
                                   name='{}_{}'.format(param.name, 'grad'))
         # shared variable for previous learning rates
-        step_prev = theano.shared(np.zeros_like(param.get_value()) + learning_rate,
+        step_prev = theano.shared(np.zeros_like(param.get_value()) + rate,
                                   name='{}_{}'.format(param.name, 'step'))
         test = grad * grad_prev
         same = T.gt(test, 0)
@@ -172,7 +199,7 @@ def gradient_updates_rprop(cost, params, learning_rate, increase=1.2, decrease=0
         updates.append((grad_prev, grad))
         updates.append((step_prev, step))
 
-    return updates
+    return UpdateParameters(updates, rate)
 
 
 def gradient_updates_rms(cost, params, learning_rate, momentum, halflife=7):
@@ -207,8 +234,11 @@ def gradient_updates_rms(cost, params, learning_rate, momentum, halflife=7):
     # list of gradients for all params
     grads = T.grad(cost, params)
 
-    updates = []
+    # shared variable for learning rate
+    rate = theano.shared(np.array(learning_rate,
+                         dtype=theano.config.floatX))
 
+    updates = []
     for param, grad in zip(params, grads):
         # previous values
         g1_prev = theano.shared(np.zeros_like(param.get_value()),
@@ -221,23 +251,26 @@ def gradient_updates_rms(cost, params, learning_rate, momentum, halflife=7):
         g1_t = ewma * g1_prev + (1 - ewma) * grad
         g2_t = ewma * g2_prev + (1 - ewma) * grad * grad
         rms = T.sqrt(g2_t - g1_t * g1_t + 1e-4)
-        vel_t = momentum * vel_prev - grad * learning_rate / rms
+        vel_t = momentum * vel_prev - grad * rate / rms
 
         updates.append((g1_prev, g1_t))
         updates.append((g2_prev, g2_t))
         updates.append((vel_prev, vel_t))
         updates.append((param, param + vel_t))
 
-    return updates
+    return UpdateParameters(updates, rate)
 
 
-def gradient_updates_domkorms(cost, params, eta):
+def gradient_updates_domkorms(cost, params, learning_rate):
 
     # list of gradients for all params
     grads = T.grad(cost, params)
 
     eps = 1e-12
 
+    # shared variable for learning rate
+    rate = theano.shared(np.array(learning_rate,
+                         dtype=theano.config.floatX))
     updates = []
     for param, grad in zip(params, grads):
         # previous values
@@ -245,6 +278,6 @@ def gradient_updates_domkorms(cost, params, eta):
                             name='{}_{}'.format(param.name, 'mss'))
 
         updates.append((mss, mss * 0.9 + 0.1 * grad * grad))
-        updates.append((param, param - eta * grad / T.sqrt(mss + eps)))
+        updates.append((param, param - rate * grad / T.sqrt(mss + eps)))
 
-    return updates
+    return UpdateParameters(updates, rate)

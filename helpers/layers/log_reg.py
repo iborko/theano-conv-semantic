@@ -4,12 +4,6 @@ From:
     http://deeplearning.net/tutorial/
 """
 
-import cPickle
-import gzip
-import os
-import sys
-import time
-
 import numpy
 
 import theano
@@ -41,7 +35,8 @@ class LogisticRegression(object):
                       which the labels lie
 
         """
-        # start-snippet-1
+        self.n_classes = n_out
+
         # initialize with 0 the weights W as a matrix of shape (n_in, n_out)
         self.W = theano.shared(
             value=numpy.zeros(
@@ -74,7 +69,6 @@ class LogisticRegression(object):
         # symbolic description of how to compute prediction as class whose
         # probability is maximal
         self.y_pred = T.argmax(self.p_y_given_x, axis=1)
-        # end-snippet-1
 
         # parameters of the model
         self.params = [self.W, self.b]
@@ -107,7 +101,18 @@ class LogisticRegression(object):
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y])
+        return -T.mean(T.log(self.p_y_given_x[T.arange(y.shape[0]), y]))
+
+    def boost_negative_log_likelihood(self, y, alpha):
+        """
+        Using boosted cross entropy for log-likelihood,
+        http://research.microsoft.com/pubs/230081/IS140944.pdf
+
+        alpha: int
+            boosting order
+        """
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        return -T.mean(T.pow(1 - p_correct_classes, alpha) * T.log(p_correct_classes))
 
     def errors(self, y):
         """Return a float representing the number of errors in the minibatch
@@ -130,6 +135,42 @@ class LogisticRegression(object):
             # the T.neq operator returns a vector of 0s and 1s, where 1
             # represents a mistake in prediction
             return T.mean(T.neq(self.y_pred, y))
+        else:
+            raise NotImplementedError()
+
+    def class_errors(self, y):
+        """
+        Returns a float representing the average pixel accuracy for every
+        class in the minibatch.
+
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for each example the
+                  correct label
+        """
+
+        # check if y has same dimension of y_pred
+        if y.ndim != self.y_pred.ndim:
+            raise TypeError(
+                'y should have the same shape as self.y_pred',
+                ('y', y.type, 'y_pred', self.y_pred.type)
+            )
+        # check if y is of the correct datatype
+        if y.dtype.startswith('int'):
+            # pixel errors for every class
+            c_errors = T.zeros((self.n_classes),
+                               dtype=theano.config.floatX)
+            for i in range(self.n_classes):
+                c_errors = T.set_subtensor(
+                    c_errors[i],
+                    # if there is no occurences of a class in this minibatch,
+                    # set error to 0, otherwise calculate mean
+                    T.switch(
+                        T.any(T.eq(y, i)),
+                        T.mean(T.neq(y[T.eq(y, i).nonzero()],
+                               self.y_pred[T.eq(y, i).nonzero()])),
+                        0.0)
+                    )
+            return T.mean(c_errors)
         else:
             raise NotImplementedError()
 
