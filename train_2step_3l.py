@@ -15,7 +15,7 @@ import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
 from helpers.build_multiscale import build_multiscale, extend_net_w1l
-from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
+from helpers.weight_updates import gradient_updates_rms
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
 from preprocessing.transform_out import resize_marked_image
