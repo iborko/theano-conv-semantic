@@ -188,4 +188,4 @@ def change_train_set_multiscale(shared_xs, xs, shared_y, y, marked_shape):
     pylab.show()
     '''
 
-    logger.info("\|/- Done perturbing dataset")
+    logger.info("\|/ - Done perturbing dataset")

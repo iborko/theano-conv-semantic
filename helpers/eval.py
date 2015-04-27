@@ -64,11 +64,11 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
     #   early-stopping parameters
     # look as this many iterations regardless
-    patience = 1200
+    patience = n_train_batches * 20  # skip first 20 epochs
     # wait this much longer when a new best is found
     patience_increase = 2
     # a relative improvement of this much is considered significant
-    improvement_threshold = 0.997
+    improvement_threshold = 0.998
     # go through this many minibatche before checking the network
     # on the validation set; in this case we check every epoch
     validation_frequency = min(n_train_batches, patience / 2)
@@ -78,6 +78,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
     best_validation_loss = numpy.inf
     best_iter = 0
+    best_epoch = 0
     best_params = []
 
     epoch = 0
@@ -90,11 +91,13 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
         if pre_fn is not None:
             pre_fn()
 
+        training_costs = numpy.zeros((n_train_batches), dtype='float32')
         for minibatch_index in xrange(n_train_batches):
 
             iter = (epoch - 1) * n_train_batches + minibatch_index
 
             cost_ij = train_fn(minibatch_index)
+            training_costs[minibatch_index] = cost_ij
             # logger.info('training @ iter = %d, cost %f' % (iter, cost_ij))
             stdout.write('.')
             stdout.flush()
@@ -132,6 +135,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                     # save best validation score and iteration number
                     best_validation_loss = this_validation_loss
                     best_iter = iter
+                    best_epoch = epoch
                     # save model parameters
                     best_params = [l.get_weights() for l in layers]
                     try_pickle_dump(best_params, weights_filename)
@@ -142,15 +146,18 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                                  this_validation_loss * 100.))
 
                 # lower learning rate if no improvement
-                if epoch % epochs_check_learn_rate:
-                    if best_validation_loss >= improvement_check_best_loss:
-                        l_rate_wrapper.lower_rate_by_factor(2)
+                if (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
+                    logger.info('Try learning rate improvement')
+                    if (best_validation_loss + 0.01) >= improvement_check_best_loss:
+                        l_rate_wrapper.lower_rate_by_factor(0.5)
                     improvement_check_best_loss = best_validation_loss
 
             if patience <= iter:
                 logger.info("Run out of patience")
                 done_looping = True
                 break
+
+        logger.info('Average training cost %f', numpy.mean(training_costs))
 
     logger.info('Optimization complete.')
 

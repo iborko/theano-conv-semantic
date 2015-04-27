@@ -15,7 +15,7 @@ import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
 from helpers.build_multiscale import build_multiscale, extend_net_w1l
-from helpers.weight_updates import gradient_updates_rms
+from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
 from preprocessing.transform_out import resize_marked_image
@@ -205,15 +205,21 @@ def evaluate_conv(conf, net_weights=None):
         out_shape)
 
     # set loaded weights
-    if net_weights is not None:
-        for net_weight, layer in zip(net_weights, layers):
-            layer.set_weights(net_weight)
-        logger.info("Loaded net weights from file.")
+    try:
+        if net_weights is not None:
+	    for net_weight, layer in zip(net_weights, layers):
+	        layer.set_weights(net_weight)
+	    logger.info("Loaded net weights from file.")
+	    net_weights = None
+    except:
+        logger.error("Uncompatible network to load weights in")
+
 
     ###############
     # TRAIN MODEL #
     ###############
     logger.info("... training model")
+    """
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
         conf['training'], train_model, test_model,
@@ -227,6 +233,7 @@ def evaluate_conv(conf, net_weights=None):
                           (os.path.split(__file__)[1],
                            (end_time - start_time) / 60.))
 
+    """
     logger.info('Starting second step, with Dropout hidden layers')
     layers, new_layers = extend_net_w1l(
         conv_out, layers, n_classes,
@@ -254,10 +261,6 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    # the cost we minimize during training is the NLL of the model
-    #  and L2 regularization (lamda * L2-norm)
-    # L2-norm is sum of squared params (using only W, not b)
-    #  params has Ws on even locations
     cost2 = layers[0].boost_negative_log_likelihood(y_flat, 2)
 
     # train_model is a function that updates the model parameters
@@ -265,7 +268,7 @@ def evaluate_conv(conf, net_weights=None):
     train_model2 = theano.function(
         [index],
         cost2,
-        updates=update_params.updates,
+        updates=update_params2.updates,
         givens={
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
@@ -273,6 +276,16 @@ def evaluate_conv(conf, net_weights=None):
             y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
+
+    # try to load weights in second stage
+    try:
+        if net_weights is not None:
+	    for net_weight, layer in zip(net_weights, layers):
+	        layer.set_weights(net_weight)
+	    logger.info("Loaded net weights from file.")
+	    net_weights = None
+    except:
+        logger.error("Uncompatible network to load weights in")
 
     # evaluate model2
     start_time = time.clock()
