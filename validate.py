@@ -3,6 +3,7 @@ Functions for testing conv net, training and testing on just one image
 Version that works with Conv that uses randomization on beginning
 """
 import sys
+import time
 import logging
 
 import numpy as np
@@ -15,6 +16,7 @@ from helpers.build_multiscale import build_multiscale, extend_net_w1l
 from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 from helpers.load_conf import load_config
+from helpers.eval import calc_class_accuracy
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +35,25 @@ def set_layers_training_mode(layers, mode):
             layer.training_mode.set_value(mode)
 
 
+def print_stats(results, n_classes):
+    errors = [r[0] for r in results]
+    costs = [r[1] for r in results]
+    # class accuracies
+    correct = np.zeros((n_classes), dtype='int32')
+    total = np.zeros((n_classes), dtype='int32')
+    for r in results:
+        correct += r[2]
+        total += r[3]
+    validation_class_accuracy = calc_class_accuracy(correct, total)
+
+    logger.info('pixel error %f %%', np.mean(errors) * 100.)
+    logger.info('cost: %f', np.mean(costs))
+    logger.info('mean class accuracy: %f %%',
+                validation_class_accuracy * 100.)
+
+
 def validate(conf, net_weights):
 
-    ################
-    # LOADING DATA #
-    ################
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
 
@@ -151,9 +167,9 @@ def validate(conf, net_weights):
 
     test_model_trainset = theano.function(
         [index],
-        (layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2),
-         layers[0].class_errors(y_flat)),
+        [layers[0].errors(y_flat),
+         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+        list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
@@ -163,9 +179,9 @@ def validate(conf, net_weights):
     )
     test_model_testset = theano.function(
         [index],
-        (layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2),
-         layers[0].class_errors(y_flat)),
+        [layers[0].errors(y_flat),
+         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+        list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -188,26 +204,20 @@ def validate(conf, net_weights):
     set_layers_training_mode(layers, 0)
 
     logger.info("---> Train set")
+    start_time = time.clock()
     validation = [test_model_trainset(i) for i in xrange(n_train_batches)]
-    validation_losses = [v[0] for v in validation]
-    validation_costs = [v[1] for v in validation]
-    validation_class_errors = [v[2] for v in validation]
-
-    logger.info('pixel error %f %%', np.mean(validation_losses) * 100.)
-    logger.info('cost: %f', np.mean(validation_costs))
-    logger.info('mean class error: %f %%',
-                np.mean(validation_class_errors) * 100.)
+    end_time = time.clock()
+    logger.info("Validated %d images in %.2f seconds",
+                n_train_batches, end_time - start_time)
+    print_stats(validation, layers[0].n_classes)
 
     logger.info("---> Test set")
+    start_time = time.clock()
     validation = [test_model_testset(i) for i in xrange(n_test_batches)]
-    validation_losses = [v[0] for v in validation]
-    validation_costs = [v[1] for v in validation]
-    validation_class_errors = [v[2] for v in validation]
-
-    logger.info('pixel error %f %%', np.mean(validation_losses) * 100.)
-    logger.info('cost: %f', np.mean(validation_costs))
-    logger.info('mean class error: %f %%',
-                np.mean(validation_class_errors) * 100.)
+    end_time = time.clock()
+    logger.info("Validated %d images in %.2f seconds",
+                n_train_batches, end_time - start_time)
+    print_stats(validation, layers[0].n_classes)
 
 
 if __name__ == '__main__':

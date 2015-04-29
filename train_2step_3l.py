@@ -160,9 +160,9 @@ def evaluate_conv(conf, net_weights=None):
     # create a function to compute the mistakes that are made by the model
     test_model = theano.function(
         [index],
-        (log_reg_layer.errors(y_flat),
-         log_reg_layer.boost_negative_log_likelihood(y_flat, 2),
-         log_reg_layer.class_errors(y_flat)),
+        [log_reg_layer.errors(y_flat),
+         log_reg_layer.boost_negative_log_likelihood(y_flat, 2)] +
+        list(log_reg_layer.accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -205,21 +205,19 @@ def evaluate_conv(conf, net_weights=None):
         out_shape)
 
     # set loaded weights
-    try:
-        if net_weights is not None:
-	    for net_weight, layer in zip(net_weights, layers):
-	        layer.set_weights(net_weight)
-	    logger.info("Loaded net weights from file.")
-	    net_weights = None
-    except:
-        logger.error("Uncompatible network to load weights in")
-
+    if net_weights is not None:
+        try:
+            for net_weight, layer in zip(net_weights, layers):
+                layer.set_weights(net_weight)
+            logger.info("Loaded net weights from file.")
+            net_weights = None
+        except:
+            logger.error("Uncompatible network to load weights in")
 
     ###############
     # TRAIN MODEL #
     ###############
     logger.info("... training model")
-    """
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
         conf['training'], train_model, test_model,
@@ -233,7 +231,6 @@ def evaluate_conv(conf, net_weights=None):
                           (os.path.split(__file__)[1],
                            (end_time - start_time) / 60.))
 
-    """
     logger.info('Starting second step, with Dropout hidden layers')
     layers, new_layers = extend_net_w1l(
         conv_out, layers, n_classes,
@@ -243,9 +240,9 @@ def evaluate_conv(conf, net_weights=None):
     # create a function to compute the mistakes that are made by the model
     test_model2 = theano.function(
         [index],
-        (layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2),
-         layers[0].class_errors(y_flat)),
+        [layers[0].errors(y_flat),
+         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+        list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -278,14 +275,14 @@ def evaluate_conv(conf, net_weights=None):
     )
 
     # try to load weights in second stage
-    try:
-        if net_weights is not None:
-	    for net_weight, layer in zip(net_weights, layers):
-	        layer.set_weights(net_weight)
-	    logger.info("Loaded net weights from file.")
-	    net_weights = None
-    except:
-        logger.error("Uncompatible network to load weights in")
+    if net_weights is not None:
+        try:
+            for net_weight, layer in zip(net_weights, layers):
+                layer.set_weights(net_weight)
+            logger.info("Loaded net weights from file.")
+            net_weights = None
+        except:
+            logger.error("Uncompatible network to load weights in")
 
     # evaluate model2
     start_time = time.clock()

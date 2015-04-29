@@ -19,6 +19,21 @@ def set_layers_training_mode(layers, mode):
             layer.training_mode.set_value(mode)
 
 
+def calc_class_accuracy(correct, total):
+    """
+    Returns mean class accuracy (float)
+
+    correct: numpy 1d array
+        number of correctly classified inputs per class
+    total: numpy 1d array
+        total number of inputs per class
+    """
+    nz_classes = numpy.nonzero(total)  # nonzero classes
+    return numpy.mean(
+        correct[nz_classes].astype('float32') / total[nz_classes]
+    )
+
+
 def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                layers, pre_fn=None, l_rate_wrapper=None):
     """
@@ -51,10 +66,11 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
     # how often to lower learning rate if no improvement
     improvement_check_best_loss = numpy.inf
-    epochs_check_learn_rate  = None
+    epochs_check_learn_rate = None
     if 'learning-rate-decrease-params' in conf:
         lrdp_params = conf['learning-rate-decrease-params']
         epochs_check_learn_rate = lrdp_params['no-improvement-epochs']
+        min_learning_rate = lrdp_params['min-learning-rate']
 
     # file for dumping weights
     now = datetime.now()
@@ -68,7 +84,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     # wait this much longer when a new best is found
     patience_increase = 2
     # a relative improvement of this much is considered significant
-    improvement_threshold = 0.998
+    improvement_threshold = 0.999
     # go through this many minibatche before checking the network
     # on the validation set; in this case we check every epoch
     validation_frequency = min(n_train_batches, patience / 2)
@@ -109,11 +125,18 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
                 # compute zero-one loss on validation set
                 validation = [test_fn(i) for i in xrange(n_test_batches)]
+                set_layers_training_mode(layers, 1)
+
                 validation_losses = [v[0] for v in validation]
                 validation_costs = [v[1] for v in validation]
-                validation_class_errors = [v[2] for v in validation]
 
-                set_layers_training_mode(layers, 1)
+                # class accuracies
+                correct = numpy.zeros((layers[0].n_classes), dtype='int32')
+                total = numpy.zeros((layers[0].n_classes), dtype='int32')
+                for v in validation:
+                    correct += v[2]
+                    total += v[3]
+                validation_class_accuracy = calc_class_accuracy(correct, total)
 
                 this_validation_loss = numpy.mean(validation_losses)
                 logger.info('epoch %i, minibatch %i/%i, validation error %f %%',
@@ -121,8 +144,8 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                             this_validation_loss * 100.)
                 logger.info('validation cost: %f',
                             numpy.mean(validation_costs))
-                logger.info('mean class error: %f %%',
-                            numpy.mean(validation_class_errors) * 100.)
+                logger.info('mean class accuracy: %f %%',
+                            validation_class_accuracy * 100.)
 
                 # if we got the best validation score until now
                 if this_validation_loss < best_validation_loss:
@@ -131,6 +154,8 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                     if this_validation_loss < best_validation_loss *  \
                        improvement_threshold:
                         patience = max(patience, iter * patience_increase)
+                        if iter * patience_increase == patience:
+                            logger.info("Patience increased to %d", patience)
 
                     # save best validation score and iteration number
                     best_validation_loss = this_validation_loss
@@ -146,14 +171,16 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                                  this_validation_loss * 100.))
 
                 # lower learning rate if no improvement
-                if (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
-                    logger.info('Try learning rate improvement')
-                    if (best_validation_loss + 0.01) >= improvement_check_best_loss:
+                learn_rate = l_rate_wrapper.learning_rate.get_value()
+                if learn_rate > min_learning_rate and\
+                        (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
+                    if (best_validation_loss + 0.05) >= improvement_check_best_loss:
                         l_rate_wrapper.lower_rate_by_factor(0.5)
+                        epochs_check_learn_rate = int(epochs_check_learn_rate * 1.2)
                     improvement_check_best_loss = best_validation_loss
 
             if patience <= iter:
-                logger.info("Run out of patience")
+                logger.info("Ran out of patience")
                 done_looping = True
                 break
 

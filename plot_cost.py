@@ -32,7 +32,7 @@ def parse_log(fname):
             if 'validation error' in line:
                 val_error.append(float(line.split('validation error')[-1].split()[-2]))
 
-    train = np.vstack(map(lambda x: sum(x) / len(x), train_acc))
+    # train = np.vstack(map(lambda x: sum(x) / len(x), train_acc))
     val = np.vstack(val)
     val_error = np.vstack(val_error)
 
@@ -45,7 +45,7 @@ def main():
 
     fig, ax1 = plt.subplots()
 
-    ax1.plot(train, label='training cost')
+    #ax1.plot(train, label='training cost')
     ax1.plot(val, label='validation cost')
     ax1.plot(np.ones(len(val)) * np.min(val), 'r--')
     ax1.plot([np.argmin(val)], [np.min(val)], 'ro')

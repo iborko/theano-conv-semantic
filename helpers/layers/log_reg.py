@@ -138,16 +138,16 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
-    def class_errors(self, y):
+    def accurate_pixels_class(self, y):
         """
-        Returns a float representing the average pixel accuracy for every
-        class in the minibatch.
+        Returns number of correctly classified pixels per class
+        and total number of pixels per class.
+        (pair of numpy 1d arrays)
 
         :type y: theano.tensor.TensorType
         :param y: corresponds to a vector that gives for each example the
                   correct label
         """
-
         # check if y has same dimension of y_pred
         if y.ndim != self.y_pred.ndim:
             raise TypeError(
@@ -155,24 +155,22 @@ class LogisticRegression(object):
                 ('y', y.type, 'y_pred', self.y_pred.type)
             )
         # check if y is of the correct datatype
-        if y.dtype.startswith('int'):
-            # pixel errors for every class
-            c_errors = T.zeros((self.n_classes),
-                               dtype=theano.config.floatX)
-            for i in range(self.n_classes):
-                c_errors = T.set_subtensor(
-                    c_errors[i],
-                    # if there is no occurences of a class in this minibatch,
-                    # set error to 0, otherwise calculate mean
-                    T.switch(
-                        T.any(T.eq(y, i)),
-                        T.mean(T.neq(y[T.eq(y, i).nonzero()],
-                               self.y_pred[T.eq(y, i).nonzero()])),
-                        0.0)
-                    )
-            return T.mean(c_errors)
-        else:
+        if not y.dtype.startswith('int'):
             raise NotImplementedError()
+
+        correct = T.zeros((self.n_classes), dtype='int32')
+        total = T.zeros((self.n_classes), dtype='int32')
+        for i in range(self.n_classes):
+            correct = T.set_subtensor(
+                correct[i],
+                T.switch(
+                    T.any(T.eq(y, i)),
+                    T.sum(T.eq(y[T.eq(y, i).nonzero()],
+                               self.y_pred[T.eq(y, i).nonzero()])),
+                    0)
+                )
+            total = T.set_subtensor(total[i], T.sum(T.eq(y, i)))
+        return correct, total
 
     def get_weights(self):
         return (self.W.get_value(), self.b.get_value())
