@@ -265,7 +265,7 @@ def evaluate_conv(conf, net_weights=None):
     cost2 = layers[0].bayesian_nll(y_flat)
 
     # train_model is a function that updates the model parameters
-    update_params2 = build_weight_updates(conf['training'], cost2, params2)
+    update_params2 = build_weight_updates(conf['training2'], cost2, params2)
     train_model2 = theano.function(
         [index],
         cost2,
@@ -291,7 +291,7 @@ def evaluate_conv(conf, net_weights=None):
     # evaluate model2
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
-        conf['training'], train_model2, test_model2,
+        conf['training2'], train_model2, test_model2,
         n_train_batches, n_test_batches,
         layers, pre_fn, update_params2)
     end_time = time.clock()
