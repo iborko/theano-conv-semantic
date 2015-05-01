@@ -108,11 +108,30 @@ class LogisticRegression(object):
         Using boosted cross entropy for log-likelihood,
         http://research.microsoft.com/pubs/230081/IS140944.pdf
 
-        alpha: int
-            boosting order
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for each example the
+                  correct label
+
+        :type alpha: int
+        :param alpha: boosting order (default set to 1, 2)
         """
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
         return -T.mean(T.pow(1 - p_correct_classes, alpha) * T.log(p_correct_classes))
+
+    def bayesian_nll(self, y):
+        """
+        Bayesian negative log likelihood (uses class apriors to calc loss)
+        """
+        # TODO check if training loss in inf
+        p_c = T.zeros((self.n_classes), dtype='float32')
+        total = T.prod(y.shape)
+        for i in range(self.n_classes):
+            p_c = T.set_subtensor(
+                p_c[i],
+                T.cast(T.sum(T.eq(y, i)), 'float32') / total)
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        return -(1.0 / self.n_classes) *\
+            T.mean(T.log(p_correct_classes) / p_c[y])
 
     def errors(self, y):
         """Return a float representing the number of errors in the minibatch
