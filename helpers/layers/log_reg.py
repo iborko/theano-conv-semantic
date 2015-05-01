@@ -124,13 +124,13 @@ class LogisticRegression(object):
         """
         # TODO check if training loss in inf
         p_c = T.zeros((self.n_classes), dtype='float32')
-        total = T.prod(y.shape)
+        total = T.prod(y.shape, dtype='int32')
         for i in range(self.n_classes):
             p_c = T.set_subtensor(
                 p_c[i],
                 T.cast(T.sum(T.eq(y, i)), 'float32') / total)
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
-        return -(1.0 / self.n_classes) *\
+        return -T.cast(1.0 / self.n_classes, dtype='float32') *\
             T.mean(T.log(p_correct_classes) / p_c[y])
 
     def errors(self, y):
