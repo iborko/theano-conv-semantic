@@ -15,37 +15,35 @@ if len(sys.argv) < 2:
 
 def parse_log(fname):
     train = []
-    train_acc = []
     val = []
     val_error = []
 
     with open(fname) as f:
         for line in f:
-            if 'training @' in line:
+            if 'training cost' in line:
                 train.append(float(line.split('cost')[-1].strip()))
 
             if 'validation cost' in line:
                 val.append(float(line.split('cost:')[-1].strip()))
-                train_acc.append(train)
-                train = []
 
             if 'validation error' in line:
-                val_error.append(float(line.split('validation error')[-1].split()[-2]))
+                val_error.append(
+                    float(line.split('validation error')[-1].split()[-2]))
 
-    # train = np.vstack(map(lambda x: sum(x) / len(x), train_acc))
+    train = np.vstack(train)
     val = np.vstack(val)
     val_error = np.vstack(val_error)
 
     return (train, val, val_error)
 
 
-def main():
+def main(path):
 
-    train, val, val_error = parse_log(sys.argv[1])
+    train, val, val_error = parse_log(path)
 
     fig, ax1 = plt.subplots()
 
-    #ax1.plot(train, label='training cost')
+    ax1.plot(train, label='training cost')
     ax1.plot(val, label='validation cost')
     ax1.plot(np.ones(len(val)) * np.min(val), 'r--')
     ax1.plot([np.argmin(val)], [np.min(val)], 'ro')
@@ -64,4 +62,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    """
+    Usage: python plot_cost.py output.log
+    """
+    argc = len(sys.argv)
+    if (argc != 1):
+        main(sys.argv[1])
+    else:
+        print "Wrong arguments"
+        exit(1)

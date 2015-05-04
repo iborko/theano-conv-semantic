@@ -161,7 +161,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model = theano.function(
         [index],
         [log_reg_layer.errors(y_flat),
-         log_reg_layer.bayesian_nll(y_flat)] +
+         log_reg_layer.negative_log_likelihood(y_flat)] +
         list(log_reg_layer.accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -182,7 +182,7 @@ def evaluate_conv(conf, net_weights=None):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    cost = log_reg_layer.bayesian_nll(y_flat)\
+    cost = log_reg_layer.negative_log_likelihood(y_flat)\
         + 10**-5 * T.sum([T.sum(w ** 2) for w in weights])
 
     # train_model is a function that updates the model parameters
@@ -262,7 +262,7 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    cost2 = layers[0].bayesian_nll(y_flat)
+    cost2 = layers[0].negative_log_likelihood(y_flat)
 
     # train_model is a function that updates the model parameters
     update_params2 = build_weight_updates(conf['training2'], cost2, params2)
@@ -306,9 +306,9 @@ def evaluate_conv(conf, net_weights=None):
 if __name__ == '__main__':
     """
     Examples of usage:
-    python train.py network.conf
+    python train_2step_3l.py network.conf
 
-    python train.py network.conf network-12-34.bin
+    python train_2step_3l.py network.conf network-12-34.bin
         trains network starting with weights in network-*.bin file
     """
     logging.basicConfig(level=logging.INFO)

@@ -84,7 +84,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     # wait this much longer when a new best is found
     patience_increase = 2
     # a relative improvement of this much is considered significant
-    improvement_threshold = 0.999
+    improvement_threshold = 0.998
     # go through this many minibatche before checking the network
     # on the validation set; in this case we check every epoch
     validation_frequency = min(n_train_batches, patience / 2)

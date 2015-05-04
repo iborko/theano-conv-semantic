@@ -86,8 +86,6 @@ def generate_targets(samples):
 
     samples: list
         list of Sample objects
-    class_counter: ClassCounter object
-        object used for generating class markings (class ordinal numbers)
 
     returns: np.array
         array of class ordinal numbers
@@ -148,8 +146,8 @@ def main(show=False):
     samples = list(samples)
 
     #   use only subset of data TODO remove this
-    DATA_TO_USE = 30
-    samples = samples[:DATA_TO_USE]
+    #DATA_TO_USE = 30
+    #samples = samples[:DATA_TO_USE]
 
     random.seed(23455)
     random.shuffle(samples)
@@ -188,7 +186,7 @@ def main(show=False):
 
 if __name__ == "__main__":
     '''
-    python generate_datasets.py [show]
+    python generate_iccv.py [show]
     '''
     logging.basicConfig(level=logging.INFO)
 
