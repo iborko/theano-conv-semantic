@@ -3,10 +3,6 @@ Implementation of hidden layer for an artificial neural network
 From:
     http://deeplearning.net/tutorial/
 """
-import os
-import sys
-import time
-
 import numpy
 
 import theano
@@ -68,11 +64,15 @@ class HiddenLayer(object):
                 W_values *= 4
 
             W = theano.shared(value=W_values, name='W', borrow=True)
+        else:
+            assert W.get_value().shape == (n_in, n_out)
 
         if b is None:
             b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
             b_values += bias
             b = theano.shared(value=b_values, name='b', borrow=True)
+        else:
+            assert b.get_value().size == n_out
 
         self.W = W
         self.b = b

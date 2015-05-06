@@ -4,7 +4,9 @@ import theano.tensor as T
 
 from helpers.layers.log_reg import LogisticRegression
 from helpers.layers.conv import ConvPoolLayer
-from helpers.layers.hidden_dropout import HiddenLayerDropout
+# from helpers.layers.hidden_dropout import HiddenLayerDropout
+from helpers.layers.hidden import HiddenLayer
+from helpers.layers.dropout import DropoutLayer
 
 
 logger = logging.getLogger(__name__)
@@ -324,23 +326,23 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
         x4, batch_size, image_shape_s4, nkerns, nfilters,
         sparse, activation, bias, rng, layers2)
 
-    scale0_out = out0.dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[-1]))
-    scale2_out = upsample(out2, 2).dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[-1]))
-    scale4_out = upsample(out4, 4).dimshuffle(0, 2, 3, 1).\
-        reshape((-1, nkerns[-1]))
+    scale0_out = out0
+    scale2_out = upsample(out2, 2)
+    scale4_out = upsample(out4, 4)
 
-    layer4_input = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
+    conc = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
+    layer4_in = upsample(conc, 4).dimshuffle(0, 2, 3, 1).\
+        reshape((-1, nkerns[-1] * 3))
 
     # classify the values of the fully-connected sigmoidal layer
-    layer_last = LogisticRegression(input=layer4_input,
+    layer_last = LogisticRegression(input=layer4_in,
                                     n_in=nkerns[-1] * 3,  # 3 scales
                                     n_out=classes)
 
     # list of all layers
+    img_shp = tuple([x * 4 for x in img_shp])
     layers = [layer_last] + layers0
-    return layers, img_shp, layer4_input
+    return layers, img_shp, layer4_in
 
 
 def extend_net_w2l(input, layers, classes, nkerns,
@@ -352,30 +354,30 @@ def extend_net_w2l(input, layers, classes, nkerns,
     rng = numpy.random.RandomState(23454)
     DROPOUT_RATE = 0.5
 
-    layer_h0 = HiddenLayerDropout(
-        rng=rng,
-        input=input,
-        n_in=256 * 3,
-        n_out=nkerns[0],
-        activation=activation, bias=bias,
-        dropout_p=DROPOUT_RATE
-    )
-
-    layer_h1 = HiddenLayerDropout(
+    layer_h0 = DropoutLayer(input, input.shape, DROPOUT_RATE)
+    layer_h1 = HiddenLayer(
         rng=rng,
         input=layer_h0.output,
+        n_in=256 * 3,
+        n_out=nkerns[0],
+        activation=activation, bias=bias
+    )
+
+    layer_h2 = DropoutLayer(layer_h1.output, layer_h1.output.shape, DROPOUT_RATE)
+    layer_h3 = HiddenLayer(
+        rng=rng,
+        input=layer_h2.output,
         n_in=nkerns[0],
         n_out=nkerns[1],
-        activation=activation, bias=bias,
-        dropout_p=DROPOUT_RATE
+        activation=activation, bias=bias
     )
 
     # classify the values of the fully-connected sigmoidal layer
-    layer_h2 = LogisticRegression(input=layer_h1.output,
+    layer_h4 = LogisticRegression(input=layer_h3.output,
                                   n_in=nkerns[1],
                                   n_out=classes)
 
-    new_layers = [layer_h2, layer_h1, layer_h0]
+    new_layers = [layer_h4, layer_h3, layer_h2, layer_h1, layer_h0]
     all_layers = new_layers + layers[1:]
     return all_layers, new_layers
 
@@ -389,20 +391,21 @@ def extend_net_w1l(input, layers, classes, nkerns,
     rng = numpy.random.RandomState(23456)
     DROPOUT_RATE = 0.5
 
-    layer_h0 = HiddenLayerDropout(
+    layer_h0 = DropoutLayer(input, input.shape, DROPOUT_RATE)
+
+    layer_h1 = HiddenLayer(
         rng=rng,
-        input=input,
+        input=layer_h0.output,
         n_in=256 * 3,
         n_out=nkerns[0],
-        activation=activation, bias=bias,
-        dropout_p=DROPOUT_RATE
+        activation=activation, bias=bias
     )
 
     # classify the values of the fully-connected sigmoidal layer
-    layer_h1 = LogisticRegression(input=layer_h0.output,
+    layer_h2 = LogisticRegression(input=layer_h1.output,
                                   n_in=nkerns[0],
                                   n_out=classes)
 
-    new_layers = [layer_h1, layer_h0]
+    new_layers = [layer_h2, layer_h1, layer_h0]
     all_layers = new_layers + layers[1:]
     return all_layers, new_layers

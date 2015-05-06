@@ -115,9 +115,8 @@ class HiddenLayerDropout(object):
             rand = theano.tensor.shared_randomstreams.RandomStreams()
 
             #   create different outputs for training and evalu
-            output_train = output * rand.binomial(size=output.shape,
-                                                  p=dropout_p)
-            output_train = T.cast(output_train, theano.config.floatX)
+            output_train = output * rand.binomial(
+                size=output.shape, p=dropout_p, dtype=theano.config.floatX)
             output_eval = output * dropout_p
             output = ifelse(self.training_mode, output_train, output_eval)
 

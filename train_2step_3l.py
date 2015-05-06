@@ -8,7 +8,7 @@ import time
 import logging
 
 import numpy as np
-import visualize
+# import visualize
 
 import theano
 import theano.tensor as T
@@ -18,7 +18,7 @@ from helpers.build_multiscale import build_multiscale, extend_net_w1l
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
-from preprocessing.transform_out import resize_marked_image
+# from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 from helpers.load_conf import load_config
 from helpers.load_conf import convert_to_function_params
@@ -26,7 +26,7 @@ from helpers.load_conf import convert_to_function_params
 logger = logging.getLogger(__name__)
 
 ReLU = lambda x: T.maximum(x, 0)
-lReLU = lambda x: T.maximum(x, 1.0/3.0*x)  # leaky ReLU
+lReLU = lambda x: T.maximum(x, 1./5 * x)  # leaky ReLU
 
 
 def build_weight_updates(configuration, cost, params):
@@ -121,12 +121,14 @@ def evaluate_conv(conf, net_weights=None):
     y_flat = y.flatten(1)
 
     y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
-    y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
+    # y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
 
+    """
     # resize marked images to out_size of the network
     y_test_downscaled = np.empty(y_test_shape)
     for i in xrange(y_test.shape[0]):
         y_test_downscaled[i] = resize_marked_image(y_test[i], out_shape)
+    """
 
     x_train_shared, y_train_shared = \
         shared_dataset((np.zeros_like(x_train),
@@ -138,7 +140,7 @@ def evaluate_conv(conf, net_weights=None):
 
     x_test_shared, y_test_shared = \
         shared_dataset((x_test,
-                        y_test_downscaled))
+                        y_test))
     x2_test_shared = theano.shared(x_test_allscales[1], borrow=True)
     x4_test_shared = theano.shared(x_test_allscales[2], borrow=True)
 
@@ -172,9 +174,10 @@ def evaluate_conv(conf, net_weights=None):
     )
 
     # create a list of all model parameters to be fit by gradient descent
-    params = [p for l in layers for p in l.params]
+    layers_w_weights = filter(lambda l: l.params is not None, layers)
+    params = [p for l in layers_w_weights for p in l.params]
     # list of Ws through all layers
-    weights = [l.params[0] for l in layers]
+    weights = [l.params[0] for l in layers_w_weights]
 
     assert(len(weights) == len(params)/2)
 
@@ -218,6 +221,7 @@ def evaluate_conv(conf, net_weights=None):
     # TRAIN MODEL #
     ###############
     logger.info("... training model")
+
     start_time = time.clock()
     best_validation_loss, best_iter, best_params = eval_model(
         conf['training'], train_model, test_model,
@@ -256,9 +260,10 @@ def evaluate_conv(conf, net_weights=None):
     )
 
     # create a list of all model parameters to be fit by gradient descent
-    params2 = [p for l in new_layers for p in l.params]
+    layers_w_weights = filter(lambda l: l.params is not None, new_layers)
+    params2 = [p for l in layers_w_weights for p in l.params]
     # list of Ws through all layers
-    weights2 = [l.params[0] for l in new_layers]
+    weights2 = [l.params[0] for l in layers_w_weights]
 
     assert(len(weights2) == len(params2)/2)
 
