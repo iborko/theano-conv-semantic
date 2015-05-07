@@ -50,6 +50,8 @@ def print_stats(results, n_classes):
     logger.info('cost: %f', np.mean(costs))
     logger.info('mean class accuracy: %f %%',
                 validation_class_accuracy * 100.)
+    logger.info('per class accuracies: %s',
+                correct.astype('float32') / total)
 
 
 def validate(conf, net_weights):
