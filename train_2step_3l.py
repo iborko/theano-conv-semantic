@@ -18,7 +18,7 @@ from helpers.build_multiscale import build_multiscale, extend_net_w1l
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
-# from preprocessing.transform_out import resize_marked_image
+from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 from helpers.load_conf import load_config
 from helpers.load_conf import convert_to_function_params
@@ -121,14 +121,12 @@ def evaluate_conv(conf, net_weights=None):
     y_flat = y.flatten(1)
 
     y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
-    # y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
+    y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
 
-    """
     # resize marked images to out_size of the network
     y_test_downscaled = np.empty(y_test_shape)
     for i in xrange(y_test.shape[0]):
         y_test_downscaled[i] = resize_marked_image(y_test[i], out_shape)
-    """
 
     x_train_shared, y_train_shared = \
         shared_dataset((np.zeros_like(x_train),
@@ -140,7 +138,7 @@ def evaluate_conv(conf, net_weights=None):
 
     x_test_shared, y_test_shared = \
         shared_dataset((x_test,
-                        y_test))
+                        y_test_downscaled))
     x2_test_shared = theano.shared(x_test_allscales[1], borrow=True)
     x4_test_shared = theano.shared(x_test_allscales[2], borrow=True)
 
