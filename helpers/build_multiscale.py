@@ -331,7 +331,7 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     scale4_out = upsample(out4, 4)
 
     conc = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
-    layer4_in = upsample(conc, 4).dimshuffle(0, 2, 3, 1).\
+    layer4_in = conc.dimshuffle(0, 2, 3, 1).\
         reshape((-1, nkerns[-1] * 3))
 
     # classify the values of the fully-connected sigmoidal layer
@@ -340,7 +340,6 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
                                     n_out=classes)
 
     # list of all layers
-    img_shp = tuple([x * 4 for x in img_shp])
     layers = [layer_last] + layers0
     return layers, img_shp, layer4_in
 
