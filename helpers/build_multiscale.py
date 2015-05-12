@@ -381,24 +381,25 @@ def extend_net_w2l(input, layers, classes, nkerns,
     return all_layers, new_layers
 
 
-def extend_net_w1l(input, layers, classes, nkerns,
-                   activation=T.tanh, bias=0.0):
+def extend_net_w1l_drop(input, layers, classes, nkerns,
+                        activation=T.tanh, bias=0.0):
     """
-    Extends net with hidden layers.
+    Extends net with one hidden layers and dropout.
     """
     assert(len(nkerns) == 1)
     rng = numpy.random.RandomState(23456)
     DROPOUT_RATE = 0.5
 
-    layer_h0 = DropoutLayer(input, input.shape, DROPOUT_RATE)
-
-    layer_h1 = HiddenLayer(
+    layer_h0 = HiddenLayer(
         rng=rng,
-        input=layer_h0.output,
+        input=input,
         n_in=256 * 3,
         n_out=nkerns[0],
         activation=activation, bias=bias
     )
+
+    lh1_in = layer_h0.output
+    layer_h1 = DropoutLayer(lh1_in, lh1_in.shape, DROPOUT_RATE)
 
     # classify the values of the fully-connected sigmoidal layer
     layer_h2 = LogisticRegression(input=layer_h1.output,
@@ -406,5 +407,31 @@ def extend_net_w1l(input, layers, classes, nkerns,
                                   n_out=classes)
 
     new_layers = [layer_h2, layer_h1, layer_h0]
+    all_layers = new_layers + layers[1:]
+    return all_layers, new_layers
+
+
+def extend_net_w1l(input, layers, classes, nkerns,
+                   activation=T.tanh, bias=0.0):
+    """
+    Extends net with hidden layers.
+    """
+    assert(len(nkerns) == 1)
+    rng = numpy.random.RandomState(23456)
+
+    layer_h0 = HiddenLayer(
+        rng=rng,
+        input=input,
+        n_in=256 * 3,
+        n_out=nkerns[0],
+        activation=activation, bias=bias
+    )
+
+    # classify the values of the fully-connected sigmoidal layer
+    layer_h1 = LogisticRegression(input=layer_h0.output,
+                                  n_in=nkerns[0],
+                                  n_out=classes)
+
+    new_layers = [layer_h1, layer_h0]
     all_layers = new_layers + layers[1:]
     return all_layers, new_layers

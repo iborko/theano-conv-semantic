@@ -265,7 +265,8 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    cost2 = layers[0].negative_log_likelihood(y_flat)
+    cost2 = layers[0].negative_log_likelihood(y_flat)\
+        + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
 
     # train_model is a function that updates the model parameters
     update_params2 = build_weight_updates(conf['training2'], cost2, params2)

@@ -41,7 +41,7 @@ def normalize(img):
 
 def crop_to_shape(img, requested_shape):
     ''' If image shape is larger than requested, crop it '''
-    return img[:requested_shape[0], :requested_shape[1], :]
+    return img[:requested_shape[0], :requested_shape[1]]
 
 
 def fill_to_shape(img, requested_shape):

@@ -4,6 +4,8 @@ Module containing functions for processing of input images
 
 import logging
 import cv2
+from preprocessing.transform_in import crop_to_shape
+from preprocessing.transform_in import fill_to_shape
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +42,10 @@ def process_out(img, cc, requested_shape):
     if img.shape[0] > img.shape[1]:
         img = cv2.transpose(img)
 
-    # crop to requested shape
-    img = img[:requested_shape[0], :requested_shape[1], :]
+    img = crop_to_shape(img, requested_shape)
 
-    fill_y = requested_shape[0] - img.shape[0]
-    fill_x = requested_shape[1] - img.shape[1]
-    if fill_x < 0 or fill_y < 0:
-        logger.error("Image shape not valid %s", img.shape)
-        exit(1)
-    img = cv2.copyMakeBorder(img, fill_x, fill_y, 0, 0,
-                             cv2.BORDER_CONSTANT, 0)
+    img = fill_to_shape(img, requested_shape)
+
     # gives (r, g, b) for every pixel, where r=g=b=class_index
     img = cc.count_matrix(img)
     assert(img.ndim == 2)
@@ -59,7 +55,7 @@ def process_out(img, cc, requested_shape):
 
 def process_iccv(img, requested_shape):
     '''
-    TODO
+    Process iccv marked image
 
     img: numpy array
         image
@@ -72,19 +68,12 @@ def process_iccv(img, requested_shape):
     if img.shape[0] > img.shape[1]:
         img = cv2.transpose(img)
 
-    img[img < 0] = 8
-    img += 1
+    img[img < 0] = 8  # replace -1 with 8
+    img += 1  # shift all by 1, leave room for class(0), empty parts
 
-    # crop to requested shape
-    img = img[:requested_shape[0], :requested_shape[1]]
+    img = crop_to_shape(img, requested_shape)
 
-    fill_y = requested_shape[0] - img.shape[0]
-    fill_x = requested_shape[1] - img.shape[1]
-    if fill_x < 0 or fill_y < 0:
-        logger.error("Image shape not valid %s", img.shape)
-        exit(1)
-    img = cv2.copyMakeBorder(img, fill_x, fill_y, 0, 0,
-                             cv2.BORDER_CONSTANT, 0)
+    img = fill_to_shape(img, requested_shape)
 
     assert(img.ndim == 2)
 
