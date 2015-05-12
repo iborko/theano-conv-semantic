@@ -15,6 +15,141 @@ from theano.tensor.nnet import conv
 logger = logging.getLogger(__name__)
 
 
+def crop_to_size(x, img_size, filter_size):
+    """
+    Crops last two dims of theano tensor x to img_size.
+    Filter_size is parameter so theano can optimize expression at compile time
+
+    x: theano 4d tensor
+        Input tensor
+    img_size: 2d tuple
+        Image size (last two dims of tensor)
+    filter_size: int
+        Size of conv filter
+
+    Returns: theano 4d tensor
+        cropped theano tensor
+    """
+    assert(type(img_size) is tuple)
+    assert(type(filter_size) is int)
+    assert(len(img_size) == 2)
+    assert((filter_size - 1) % 2 == 0)
+
+    start_ind = (filter_size - 1) / 2
+    return x[:, :, start_ind:(start_ind + img_size[0]),
+             start_ind:(start_ind + img_size[1])]
+
+
+class ConvLayer(object):
+    """
+    Convolutional layer of a artificial neural network.
+    """
+
+    def __init__(self, rng, input, filter_shape, image_shape,
+                 activation=T.tanh, bias=0.0, stride=(1, 1),
+                 border_mode='valid',
+                 W=None, b=None):
+        """
+        Allocate layer with shared variable internal parameters.
+
+        :type rng: numpy.random.RandomState
+        :param rng: a random number generator used to initialize weights
+
+        :type input: theano.tensor.dtensor4
+        :param input: symbolic image tensor, of shape image_shape
+
+        :type filter_shape: tuple or list of length 4
+        :param filter_shape: (number of filters, num input feature maps,
+                              filter height, filter width)
+
+        :type image_shape: tuple or list of length 4
+        :param image_shape: (batch size, num input feature maps,
+                             image height, image width)
+        """
+        logger.info("Creating conv layer with filter shape %r,"
+                    "image shape: %r", filter_shape, image_shape)
+
+        #   filter_shape[1] is number of maps used from layer before
+        maps_to_use = filter_shape[1]
+        assert image_shape[1] == maps_to_use
+        self.input = input
+
+        #   there are "num input feature maps * filter height * filter width"
+        #   inputs to each hidden unit
+        fan_in = numpy.prod(filter_shape[1:])
+        #   each unit in the lower layer receives a gradient from:
+        #   "num output feature maps * filter height * filter width" /
+        #     pooling size
+        fan_out = (filter_shape[0] * numpy.prod(filter_shape[2:]))
+        #           numpy.prod(poolsize))
+        #   initialize weights with random weights
+        W_bound = numpy.sqrt(6. / (fan_in + fan_out))
+        W_values = rng.uniform(low=-W_bound, high=W_bound,
+                               size=filter_shape)
+
+        if W is None:
+            self.W = theano.shared(
+                numpy.asarray(
+                    W_values,
+                    dtype=theano.config.floatX),
+                borrow=True)
+        else:
+            self.W = W
+
+        if b is None:
+            #   the bias is a 1D tensor -- one bias per output feature map
+            b_values = numpy.zeros((filter_shape[0],),
+                                   dtype=theano.config.floatX)
+            b_values += bias
+            self.b = theano.shared(value=b_values, borrow=True)
+        else:
+            self.b = b
+
+        b_mode = 'full' if border_mode == 'same' else border_mode
+        # convolve input feature maps with filters
+        conv_out = conv.conv2d(
+            input=input,
+            filters=self.W,
+            filter_shape=filter_shape,
+            image_shape=image_shape,
+            subsample=stride,
+            border_mode=b_mode
+        )
+        if border_mode == 'same':
+            assert(filter_shape[-1] == filter_shape[-2])
+            img_shape = (image_shape[2], image_shape[3])
+            conv_out = crop_to_size(conv_out, img_shape, filter_shape[-1])
+            # print "---> cropped image"
+
+        # add the bias term. Since the bias is a vector (1D array), we first
+        # reshape it to a tensor of shape (1, n_filters, 1, 1). Each bias will
+        # thus be broadcasted across mini-batches and feature map
+        # width & height
+        self.output = activation(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+
+        # store parameters of this layer
+        self.params = [self.W, self.b]
+
+    def get_weights(self):
+        return (self.W.get_value(), self.b.get_value())
+
+    def set_weights(self, weights):
+        W, b = weights
+        self.W.set_value(W)
+        self.b.set_value(b)
+
+    def __getstate__(self):
+        return (self.W.get_value(), self.b.get_value(),
+                self.input, self.output)
+
+    def __setstate__(self, state):
+        W, b, input, output = state
+        self.W = theano.shared(W, borrow=True)
+        self.b = theano.shared(W, borrow=True)
+        self.input = input
+        self.output = output
+
+
 class ConvPoolLayer(object):
     """
     Convolutional and pooling layer of a artificial neural network.
@@ -117,14 +252,19 @@ class ConvPoolLayer(object):
             self.b = b
 
         # convolve input feature maps with filters
+        b_mode = 'full' if border_mode == 'same' else border_mode
         conv_out = conv.conv2d(
             input=input,
             filters=self.W,
             filter_shape=filter_shape_sparse,
             image_shape=image_shape,
             subsample=stride,
-            border_mode=border_mode
+            border_mode=b_mode
         )
+        if border_mode == 'same':
+            assert(filter_shape[-1] == filter_shape[-2])
+            conv_out = crop_to_size(conv_out, image_shape, filter_shape[-1])
+            print "---> cropped image"
 
         # mode where this layer is just a bank of filters
         if only_conv:

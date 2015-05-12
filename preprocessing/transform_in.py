@@ -1,10 +1,10 @@
 """
-Module containing functions for processing of input images
+Module containing functions for processing input images
 """
 
 import logging
 import cv2
-import pylab
+# import pylab
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -141,6 +141,29 @@ def yuv(img, requested_shape):
 
     float_img = img.astype('float32')
     float_img = float_img / 255.0
+    float_img = np.rollaxis(float_img, 2, 0)
+
+    return float_img
+
+
+def rgb_mean(img, requested_shape):
+    '''
+    Image is cropped and filled to static shape size,
+    values are scaled to 0-1 range and mean is subtracted.
+    '''
+
+    logger.debug("Image has shape %s", img.shape)
+    #   rotate image for 90, if in portrait orientation
+    if img.shape[0] > img.shape[1]:
+        img = cv2.transpose(img)
+
+    #   crop and fill to shape
+    img = crop_to_shape(img, requested_shape)
+    img = fill_to_shape(img, requested_shape)
+
+    float_img = img.astype('float32')
+    float_img /= 255.0
+    float_img -= float_img.mean()
     float_img = np.rollaxis(float_img, 2, 0)
 
     return float_img

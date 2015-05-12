@@ -11,7 +11,8 @@ import sys
 import pylab
 import multiprocessing as mp
 
-from preprocessing.transform_in import yuv
+# from preprocessing.transform_in import yuv
+from preprocessing.transform_in import rgb_mean
 from preprocessing.transform_out import process_iccv
 from dataset.loader_iccv import load_dataset
 from util import try_pickle_dump
@@ -21,7 +22,6 @@ logger = logging.getLogger(__name__)
 DATASET_PATH = './data/iccv09Data/'
 OUT_PATH = './data/iccv09Data/theano_datasets/'
 requested_shape = (240, 320)
-n_layers = 1
 
 
 def save_result_img(result_list, result):
@@ -31,27 +31,31 @@ def save_result_img(result_list, result):
 
 
 def gen_layers_for_image(i, img):
-    img = yuv(img, requested_shape)
-    # return i, layers
+    # img = yuv(img, requested_shape)
+    img = rgb_mean(img, requested_shape)
     return i, [img]
 
 
-def generate_x(samples):
+def generate_x(samples, n_layers, gen_func):
     """
     Generates list of processed images in a form of a 2d numpy array.
 
     samples: list
         list of Sample objects
+    n_layers: int
+        number of layers
+    gen_func: function
+        function for generating layers (of images)
 
     Returns: list of numpy arrays
     """
-    x_shape = (len(samples), 3, requested_shape[0], requested_shape[1])
-
     # list of numpy array, every for one pyramid layer
     x_list = []
     for i in range(n_layers):
-        x_list.append(np.zeros(x_shape, dtype=theano.config.floatX))
-    logger.info("Input data new shape %s", x_list[0].shape)
+        layer_shp = (len(samples), 3,
+                     requested_shape[0] / (2**i), requested_shape[1] / (2**i))
+        logger.info("Layer %d has shape %s", i, layer_shp)
+        x_list.append(np.zeros(layer_shp, dtype=theano.config.floatX))
 
     cpu_count = mp.cpu_count()
     pool = mp.Pool(cpu_count)
@@ -60,7 +64,7 @@ def generate_x(samples):
     result_func = lambda result: save_result_img(x_list, result)
 
     for i, sample in enumerate(samples):
-        pool.apply_async(gen_layers_for_image, args=(i, sample.image,),
+        pool.apply_async(gen_func, args=(i, sample.image,),
                          callback=result_func)
     pool.close()
     pool.join()
@@ -92,7 +96,7 @@ def generate_targets(samples):
     """
     y_shape = (len(samples), requested_shape[0], requested_shape[1])
 
-    y = np.zeros(y_shape, dtype=theano.config.floatX)
+    y = np.zeros(y_shape, dtype='int8')
 
     logger.info("Segmented images new shape %s", y.shape)
 
@@ -137,7 +141,7 @@ def split_samples(samples, classes, test_size=0.1):
     return train_samples, test_samples
 
 
-def main(show=False):
+def main(gen_func, n_layers, show=False):
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
 
@@ -146,8 +150,8 @@ def main(show=False):
     samples = list(samples)
 
     #   use only subset of data TODO remove this
-    #DATA_TO_USE = 30
-    #samples = samples[:DATA_TO_USE]
+    DATA_TO_USE = 30
+    samples = samples[:DATA_TO_USE]
 
     random.seed(23455)
     random.shuffle(samples)
@@ -155,8 +159,8 @@ def main(show=False):
     train_samples, test_samples = split_samples(samples, 0.1)
     del samples
 
-    x_train = generate_x(train_samples)
-    x_test = generate_x(test_samples)
+    x_train = generate_x(train_samples, n_layers, gen_func)
+    x_test = generate_x(test_samples, n_layers, gen_func)
     y_train = generate_targets(train_samples)
     y_test = generate_targets(test_samples)
     del train_samples
@@ -186,7 +190,7 @@ def main(show=False):
 
 if __name__ == "__main__":
     '''
-    python generate_iccv.py [show]
+    python generate_iccv_1l.py [show]
     '''
     logging.basicConfig(level=logging.INFO)
 
@@ -198,4 +202,4 @@ if __name__ == "__main__":
     if argc > 1 and sys.argv[1] == "show":
         show = True
 
-    main(show)
+    main(gen_layers_for_image, n_layers=1, show=show)
