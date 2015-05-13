@@ -52,7 +52,7 @@ def calc_class_freqs(y):
     Returns: theano shared variable whose length is number of classes
     """
     n_classes = y.max() + 1
-    sums = numpy.bincount(y)
+    sums = numpy.bincount(y.reshape((-1)))
     ii = numpy.nonzero(sums)[0]
     total = sums.sum()
 
