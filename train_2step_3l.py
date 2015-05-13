@@ -14,7 +14,7 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_multiscale import build_multiscale, extend_net_w1l
+from helpers.build_multiscale import build_multiscale, extend_net_w1l, extend_net_w1l_drop
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
@@ -211,6 +211,7 @@ def evaluate_conv(conf, net_weights=None):
             for net_weight, layer in zip(net_weights, layers):
                 layer.set_weights(net_weight)
             logger.info("Loaded net weights from file.")
+            best_params = net_weights
             net_weights = None
         except:
             logger.error("Uncompatible network to load weights in")
@@ -238,7 +239,7 @@ def evaluate_conv(conf, net_weights=None):
         layer.set_weights(net_weight)
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net_w1l(
+    layers, new_layers = extend_net_w1l_drop(
         conv_out, layers, n_classes,
         nkerns=[1000],
         activation=lReLU, bias=0.001)
@@ -247,7 +248,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].bayesian_nll(y_flat)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -265,8 +266,8 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    cost2 = layers[0].negative_log_likelihood(y_flat)\
-        + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
+    cost2 = layers[0].negative_log_likelihood(y_flat)
+    #     + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
 
     # train_model is a function that updates the model parameters
     update_params2 = build_weight_updates(conf['training2'], cost2, params2)

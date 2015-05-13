@@ -162,9 +162,6 @@ def evaluate_conv(conf, net_weights=None):
     assert(len(weights) == len(params)/2)
 
     # the cost we minimize during training is the NLL of the model
-    #  and L2 regularization (lamda * L2-norm)
-    # L2-norm is sum of squared params (using only W, not b)
-    #  params has Ws on even locations
     cost = log_reg_layer.negative_log_likelihood(y_flat)
 
     # train_model is a function that updates the model parameters

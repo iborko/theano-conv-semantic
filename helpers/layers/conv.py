@@ -263,8 +263,9 @@ class ConvPoolLayer(object):
         )
         if border_mode == 'same':
             assert(filter_shape[-1] == filter_shape[-2])
-            conv_out = crop_to_size(conv_out, image_shape, filter_shape[-1])
-            print "---> cropped image"
+            img_shape = (image_shape[2], image_shape[3])
+            conv_out = crop_to_size(conv_out, img_shape, filter_shape[-1])
+            # print "---> cropped image"
 
         # mode where this layer is just a bank of filters
         if only_conv:

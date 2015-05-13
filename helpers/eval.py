@@ -174,6 +174,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                 learn_rate = l_rate_wrapper.learning_rate.get_value()
                 if learn_rate > min_learning_rate and\
                         (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
+                    print "checking learning rate", learn_rate, min_learning_rate, epoch, best_epoch, best_validation_loss, improvement_check_best_loss
                     if (best_validation_loss + 0.05) >= improvement_check_best_loss:
                         l_rate_wrapper.lower_rate_by_factor(0.5)
                         epochs_check_learn_rate = int(epochs_check_learn_rate * 1.2)
