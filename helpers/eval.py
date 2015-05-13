@@ -82,7 +82,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     # look as this many iterations regardless
     patience = n_train_batches * 20  # skip first 20 epochs
     # wait this much longer when a new best is found
-    patience_increase = 2
+    patience_increase = 1.1
     # a relative improvement of this much is considered significant
     improvement_threshold = 0.998
     # go through this many minibatche before checking the network
@@ -152,10 +152,13 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
                     # improve patience if loss improvement is good enough
                     if this_validation_loss < best_validation_loss *  \
-                       improvement_threshold:
-                        patience = max(patience, iter * patience_increase)
-                        if iter * patience_increase == patience:
-                            logger.info("Patience increased to %d", patience)
+                            improvement_threshold:
+                        old_patience = patience
+                        patience = max(patience,
+                                       8 + int(iter * patience_increase))
+                        if patience != old_patience:
+                            logger.info("Patience increased to %d",
+                                        int(patience / n_train_batches))
 
                     # save best validation score and iteration number
                     best_validation_loss = this_validation_loss

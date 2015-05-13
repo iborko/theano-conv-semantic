@@ -39,3 +39,29 @@ def load_data(x_path, y_path):
         y_data = pickle.load(f)
 
     return x_data, y_data
+
+
+def calc_class_freqs(y):
+    """
+    Calculate class frequencies, create theano shared variable and
+    save it into.
+
+    :type y: numpy.array
+    :param y: array of marked images
+
+    Returns: theano shared variable whose length is number of classes
+    """
+    n_classes = y.max() + 1
+    sums = numpy.bincount(y)
+    ii = numpy.nonzero(sums)[0]
+    total = sums.sum()
+
+    freqs = numpy.zeros((n_classes), dtype=theano.config.floatX)
+    for i, num in zip(ii, sums[ii]):
+        freqs[i] = 1. * num / total
+
+    logger.info("Total of %d items", total)
+    logger.info("Class frequencies\n %s", freqs)
+
+    freqs_shared = theano.shared(freqs, borrow=True)
+    return freqs_shared

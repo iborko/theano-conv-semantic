@@ -118,9 +118,18 @@ class LogisticRegression(object):
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
         return -T.mean(T.pow(1 - p_correct_classes, alpha) * T.log(p_correct_classes))
 
+    def bayesian_nll_ds(self, y, p_c):
+        """
+        Bayesian negative log likelihood (uses class apriors to calc loss)
+        Class priors calculated per dataset.
+        """
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        return -T.mean(T.log(p_correct_classes) / p_c[y])
+
     def bayesian_nll(self, y):
         """
         Bayesian negative log likelihood (uses class apriors to calc loss)
+        Class priors calculated per minibatch.
         """
         # TODO check if training loss in inf
         p_c = T.zeros((self.n_classes), dtype='float32')

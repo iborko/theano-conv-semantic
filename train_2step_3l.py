@@ -13,7 +13,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 
-from helpers.data_helper import shared_dataset
+from helpers.data_helper import shared_dataset, calc_class_freqs
 from helpers.build_multiscale import build_multiscale, extend_net_w1l
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
@@ -157,11 +157,13 @@ def evaluate_conv(conf, net_weights=None):
     ###############
     logger.info("... building model")
 
+    class_freqs = calc_class_freqs(np.concatenate([y_train, y_test], axis=0))
+
     # create a function to compute the mistakes that are made by the model
     test_model = theano.function(
         [index],
         [log_reg_layer.errors(y_flat),
-         log_reg_layer.negative_log_likelihood(y_flat)] +
+         log_reg_layer.bayesian_nll_ds(y_flat, class_freqs)] +
         list(log_reg_layer.accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -183,7 +185,8 @@ def evaluate_conv(conf, net_weights=None):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    cost = log_reg_layer.negative_log_likelihood(y_flat)\
+    # cost = log_reg_layer.negative_log_likelihood(y_flat)\
+    cost = log_reg_layer.bayesian_nll_ds(y_flat, class_freqs)\
         + 10**-5 * T.sum([T.sum(w ** 2) for w in weights])
 
     # train_model is a function that updates the model parameters
