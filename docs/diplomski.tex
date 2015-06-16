@@ -1,6 +1,9 @@
 \documentclass[times, utf8, diplomski, numeric]{fer}
 \usepackage{booktabs}
 \usepackage{nameref}
+\usepackage{listings}
+
+\lstset{language=Python, tabsize=4}
 
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 \newcommand{\abs}[1]{\left\lvert#1\right\rvert}
@@ -28,7 +31,7 @@
 
 \chapter{Uvod}
 
-Razumijevanje scene osnovni je problem mnogih segmenata računalnog vida. Jedan od načina na koji se može ostvariti razumijevanje scene je semantička segmentacija, odnosno proces pridjeljivanja semantičkih oznaka dijelovima scene. Primjeri oznaka su: nebo, more, livada, stablo, automobil, osoba, zgrada. Scena je obično predstavljena digitalnom fotografijom pa onda govorimo o pridjeljivanju oznaka svakom pikselu.
+Razumijevanje scene osnovni je problem mnogih segmenata računalnog vida. Jedan od načina na koji se može ostvariti razumijevanje scene je semantička segmentacija, odnosno proces pridjeljivanja semantičkih oznaka dijelovima slike. Primjeri oznaka su: nebo, more, livada, stablo, automobil, osoba, zgrada. Scena je obično predstavljena digitalnom fotografijom pa onda govorimo o pridjeljivanju oznaka svakom pikselu.
 
 Razumijevanje scene bitan je dio mnogih autonomnih robotiziranih sustava koji čine interakcije s okolinom.
 Primjer su autonomni automobili koji su u zadnje vrijeme postigli veliki razvojni napredak pa često svjedočimo reportažama o vožnjama ili pak testovima novih prototipova. Takvi automobili koriste sustave za razumijevanje scene kako bi pratili cestu kojom voze, pratili druge sudionike u prometu i mogli izbjeći potencijalne nesreće.
@@ -36,10 +39,9 @@ Primjer su autonomni automobili koji su u zadnje vrijeme postigli veliki razvojn
 Ovaj rad opisuje sustav za semantičku segmentaciju koji koristi već segmentirane scene za "učenje" svojih parametara. Arhitektura sustava se temelji na dubokim neuronskim mrežama, konkretno konvolucijskim neuronskim mrežama. Sustavi temeljeni na konvolucijskim mrežama postižu najbolje rezultate \engl{state-of-the-art} u mnogim zadacima računalnog vida poput klasifikacije (\cite{krizhevsky_imagenet}, \cite{googlenet}, \cite{vgg_net}, \cite{overfeat}), detekcije objekata (\cite{girshick2014rcnn}), fine kategorizacije \engl{fine grained categorization}(\cite{zhang14finegrained}) i semantičke segmentacije (\cite{farabet_pami}, \cite{long_shelhamer}, \cite{ChenPKMY14}).
 
 Do prije četiri godine godine konvolucijske mreže nisu bile glavni alat za semantičku segmentaciju. Tada su se uglavnom koristile razne metode temeljene na grafovima i grupiranju piksela u skupine. U takvim postupcima često se za svaku regiju od 8x8 piksela računaju HOG \engl{histogram of gradients} ili SIFT \engl{scale invariant feature transform} opisnici \cite{Lowe:1999}. Ti opisnici predstavljaju značajku te regije i ulaze u klasifikator koji ih zatim grupira i klasificira.
-Korištenjem klasifikatora poput stabala odluke ili šumama tekstona optimira se 
-Ako se koriste klasifikatori temeljeni na stablima odluka ili šumama tekstona onda klasifikator ima svoju energetsku funkciju koju optimira tako da je je slika optimalno pokrivena semantičkim oznakama.
+Kada se koriste klasifikatori temeljeni na stablima odluka tada klasifikator ima svoju energetsku funkciju koju optimira tako da je slika optimalno pokrivena semantičkim oznakama.
 
-Opisi poglavlja...
+TODO: Opisi poglavlja...
 
 \chapter{Neuronske mreže}
 
@@ -78,7 +80,7 @@ Za to vrijeme snažno su se razvijali drugi algoritmi strojnog učenja. Stroj s 
 
 \section{Klasifikacija i regresija}
 Dva temeljna problema prediktivnih sustava su klasifikacija i regresija.
-Klasifikacija je razvrstavanje ulaznih podatka u jedan od $K$ razreda. Ako je $K = 2$ onda govorimo o binarnoj klasifikaciji. Kod neuronskih mreža se to može ostvariti postavljanjem step funkcije na na kraj zadnjeg neurona čime izlaz postaje $0 / 1$.
+Klasifikacija je razvrstavanje ulaznih podatka u jedan od $K$ razreda. Ako je $K = 2$ onda govorimo o binarnoj klasifikaciji. Kod neuronskih mreža se to može ostvariti postavljanjem step funkcije na na kraj zadnjeg neurona čime izlaz postaje 0 ili 1.
 Za razliku od klasifikacije, regresija daje realni broj kao izlaz. Cilj je da realni izlaz bude čim sličniji traženom izrazu.
 
 \section{Nadzirano i nenadzirano učenje}
@@ -91,7 +93,7 @@ Parametri modela se optimiraju tako da se smanjuje zadana funkcija troška \engl
 \end{equation}
 ili pak pogreška unakrsne entropije (većinom korištena za klasifikaciju)
 \begin{equation}
-	\mathcal{L} = -\log P(y_p | y_t) = -(y_t \log(y_p) + (1 - y_t) \log(1 - y_p))
+	\mathcal{L} = -(y_t \log(y_p) + (1 - y_t) \log(1 - y_p))
 \end{equation}
 
 gdje je $y_t$ je tražena vrijednost na izlazu, a $y_p$ je dobivena (predviđena) vrijednost.
@@ -106,7 +108,54 @@ Originalni perceptron se razvijao kroz povijest i njegova verzija koja se trenut
 f(x) = \frac{1}{1+e^{-x}}
 \end{equation}
 
-Takav se model naziva logistička regresija. Logistička regresija je jedan od osnovnih klasifikacijskih modela, iako joj ime govori da je to regresijski model, što ona nije. Ona je probabilistički (njezin izlaz predstavlja vjerojatnost da je primjer u određenom razredu) i linearni klasifikator (decizijska granica je linearna)\cite{strojno_snajder}. Kod jednostavne (dvoklasne) klasifikacije parametri logističke regresije su vektor težina $\boldsymbol{w}$ i pomak $\boldsymbol{b}$. Ako govorimo o višeklasnoj klasifikaciji, parametri logističke regresije su matrica težina $\boldsymbol{W}$ i vektor pomaka $\boldsymbol{b}$. Klasifikacija se vrši tako da se određuje projekcija točaka u n-dimenzionalnom prostoru na hiperravnine koje predstavljaju granice između razreda uzoraka.
+Takav se model naziva logistička regresija. Logistička regresija je jedan od osnovnih klasifikacijskih modela, iako joj ime govori da je to regresijski model, što ona nije.
+Logistička regresija je probabilistički klasifikator jer njezin izlaz predstavlja vjerojatnost da je primjer u određenom razredu.
+Ona je i linearni klasifikator jer je decizijska granica linearna\cite{strojno_snajder}.
+Kod jednostavne (dvoklasne) klasifikacije parametri logističke regresije su vektor težina $\boldsymbol{w}$ i pomak $\boldsymbol{b}$. Ako govorimo o višeklasnoj klasifikaciji, parametri logističke regresije su matrica težina $\boldsymbol{W}$ i vektor pomaka $\boldsymbol{b}$.
+
+Da bi se shvatilo opravdanje za vjerojatnosni izlaz logističke regresije, potrebno je pokazati izvod funkcije gubitka.
+Želimo da logistička regresija modelira vjerojatnosnu distribuciju primjera iz skupa $\mathcal{D}$. Kako bi se to postiglo, potrebno je podesiti težine i pomak. Uvodimo oznaku $\theta$, koja označava skup svih parametara modela (težine i pomak). Koristeći tu notaciju, možemo reći da modeliramo vjerojatnost primjera uvjetovanu skupom parametara $P \left( x|\theta \right)$
+
+Pošto nam je već poznata distribucija primjera $\mathcal{D}$, a zanimaju nas parametri $\theta$, uvodimo termin izglednost \engl{likelihood}, koju ćemo označiti simbolom $\mathcal{L}$. Izglednost parametara uvjetovana primjerom jednaka je vjerojatnosti tog primjera uvjetovanoj parametrima:
+
+\begin{center}
+$\mathcal{L}(\theta|x) = P(x|\theta)$
+\end{center}
+
+Razmotrimo značenje predočenog izraza. Poanta nije u procjeni točne vjerojatnosti, već u ideji da ako mjenjamo parametre $\theta$ tako da oni povećavaju vjerojatnost pojavljivanja primjera $x$ (desna strana izraza), tada time istovremeno povećavamo izglednost da su parametri $\theta$ baš oni koje tražimo (lijeva strana).
+
+Ista ideja primjenjiva je na cijeli skup primjera za učenje $\mathcal{D}$. Pretpostavimo da su primjeri za učenje uzorkovani iz samo jedne distribucije. Pretpostavimo nadalje da su uzorci međusobno nezavisni . Tada govorimo o podatcima koji su nezavisni i identično distribuirani, za što se u literaturi često koristi akronim \emph{iid} \engl{independent, identically distributed}. Ako je zadovoljen \emph{iid} uvjet, možemo definirati vjerojatnost cijelog skupa za učenje $\mathcal{D}$:
+\begin{equation}
+P(\mathcal{D}) \overset{iid}{=} P(x)
+\end{equation}
+
+Iz dobivene vjerojatnosti $P(\mathcal{D})$, možemo definirati izglednost parametara s obzirom na cijeli skup za učenje $\mathcal{D}$:
+
+\begin{equation}
+\mathcal{L}(\theta|D) = P(D|\theta) \overset{iid}{=} \prod_{x \in D} P(x|\theta)
+\end{equation}
+
+Pošto u pravilu znamo za vjerojatnost $P(x|\theta)$, promjenom parametara $\theta$  možemo mijenjati vjerojatnost $P(\mathcal{D}|\theta)$. Tražimo skup parametara koji dotičnu vjerojatnost maksimizira. Za logističku regresiju to bi značilo da smo pronašli težine ($\boldsymbol{w}$) i pomak ($b$) koji dobro modeliraju skup primjera $\mathcal{D}$. Za pronalazak maksimuma vjerojatnosti $P(\mathcal{D}|\theta)$ koristimo gradijentni uspon.
+
+Preostaje i za objasniti često korišteni trik kod maksimizacije vjerojatnosti. Razmotrimo logaritamsku funkciju $ln(x)$. Ona je rastuća na cijeloj domeni: povećanjem argumenta x, povećava se vrijednost funkcije $ln(x)$. Pošto se računica izglednosti odvija na intervalu $P(x) \in [0, 1]$, unutar domene logaritamske funkcije (izuzevši rubnu vrijednost 0, što nije problem), znamo da povećanjem $P(x)$ raste i $ln(P(x))$. Stoga umjesto maksimizacije izglednosti možemo koristiti maksimizaciju log-izglednosti:
+\begin{equation}
+ln \mathcal{L}(\theta|D) = ln P(D|\theta) \overset{iid}{=} ln \prod_{x \in D} P (x|\theta) = \sum_{x \in D} ln P (x|\theta)
+\end{equation}
+
+Maksimizacijom log-izglednosti pronalazimo isti skup parametara $\theta$ kao i maksimizacijom obične izglednosti, ali matematički izračun često bude jednostavniji.
+
+Vratimo se sada na logističku regresiju. Za ulazni skup podataka, možemo definirati log izglednost $\mathcal{L}$ i gubitak $\ell$:
+\begin{equation}
+\mathcal{L} (\theta | D) = \sum_{i=0}^{|D|} ln(P(Y = y^{(i)} | x^{(i)}, \boldsymbol{w}, b))
+\label{eq:logistic_likelihood_func}
+\end{equation}
+\begin{equation}
+\ell (\theta | \mathcal{D}) = -\mathcal{L}(\theta | \mathcal{D}) = - \sum_{x \in D} ln P (x|\theta)
+\label{eq:logistic_loss_func}
+\end{equation}
+gdje je $\theta = \{\boldsymbol{w}, b\}$.
+
+Klasifikacija se vrši tako da se određuje projekcija točaka u n-dimenzionalnom prostoru na normalu hiperravnine koja predstavljaja granicu između razreda uzoraka.
 
 Matematički se to može zapisati kao:
 \begin{equation}
@@ -128,80 +177,15 @@ h = \arg\max_i P(Y = i|\boldsymbol{x}, \boldsymbol{w}, b)
 \label{eq:model_out_arg}
 \end{equation}
 
-Želimo da klasifikator modelira vjerojatnosnu distribuciju primjera iz skupa $\mathcal{D}$. Kako bi se to postiglo, potrebno je podesiti težine i pomak. Uvodimo oznaku $\theta$, koja označava skup svih parametara modela (težine i pomak). Koristeći tu notaciju, možemo reći da modeliramo vjerojatnost primjera uvjetovanu skupom parametara:
-
-\begin{center}
-$P(x|\theta)$
-\end{center}
-
-Pošto nam je već poznata distribucija primjera $\mathcal{D}$, a zanimaju nas parametri $\theta$, uvodimo termin izglednost \engl{likelihood}, koju ćemo označiti simbolom $\mathcal{L}$. Izglednost parametara uvjetovana primjerom jednaka je vjerojatnosti tog primjera uvjetovanoj parametrima:
-
-\begin{center}
-$\mathcal{L}(\theta|x) = P(x|\theta)$
-\end{center}
-
-Razmotrimo značenje predočenog izraza. Poanta nije u procjeni točne vjerojatnosti, već u ideji da ako mjenjamo parametre $\theta$ tako da oni povećavaju vjerojatnost pojavljivanja primjera $x$ (desna strana izraza), tada time istovremeno povećavamo izglednost da su parametri $\theta$ baš oni koje tražimo (lijeva strana).
-
-Ista ideja primjenjiva je na cijeli skup primjera za učenje $\mathcal{D}$. Pretpostavimo da su primjeri za učenje uzorkovani iz samo jedne distribucije. Pretpostavimo nadalje da su uzorci međusobno nezavisni . Tada govorimo o podatcima koji su nezavisni i identično distribuirani, za što se u literaturi često koristi akronim \emph{iid} \engl{independent, identically distributed}. Ako je zadovoljen \emph{iid} uvjet, možemo definirati vjerojatnost cijelog skupa za učenje $\mathcal{D}$:
-\begin{center}
-$P(\mathcal{D}) \overset{iid}{=} P(x)$
-\end{center}
-
-Iz dobivene vjerojatnosti $P(\mathcal{D})$, možemo definirati izglednost parametara s obzirom na cijeli skup za učenje $\mathcal{D}$:
-
-\begin{equation}
-\mathcal{L}(\theta|D) = P(D|\theta) \overset{iid}{=} \prod_{x \in D} P(x|\theta)
-\end{equation}
-
-Pošto u pravilu znamo za vjerojatnost $P(x|\theta)$, promjenom parametara $\theta$  možemo mijenjati vjerojatnost $P(\mathcal{D}|\theta)$. Tražimo skup parametara koji dotičnu vjerojatnost maksimizira. Za logističku regresiju to bi značilo da smo pronašli težine ($\boldsymbol{w}$) i pomak ($b$) koji dobro modeliraju skup primjera $\mathcal{D}$. Za pronalazak maksimuma vjerojatnosti $P(\mathcal{D}|\theta)$ koristimo gradijentni uspon.
-
-Još preostaje za objasniti često korišteni trik kod maksimizacije vjerojatnosti. Razmotrimo logaritamsku funkciju $ln(x)$. Ona je rastuća na cijeloj domeni: povećanjem argumenta x, povećava se vrijednost funkcije $ln(x)$. Pošto se računica izglednosti odvija na intervalu $P(x) \in [0, 1]$, unutar domene logaritamske funkcije (izuzevši rubnu vrijednost 0, što nije problem), znamo da povećanjem $P(x)$ raste i $ln(P(x))$. Stoga umjesto maksimizacije izglednosti možemo koristiti maksimizaciju log-izglednosti:
-\begin{equation}
-ln \mathcal{L}(\theta|D) = ln P(D|\theta) \overset{iid}{=} ln \prod_{x \in D} P (x|\theta) = \sum_{x \in D} ln P (x|\theta)
-\end{equation}
-
-Maksimizacijom log-izglednosti pronalazimo isti skup parametara $\theta$ kao i maksimizacijom obične izglednosti, ali matematički izračun često bude jednostavniji.
-
-Vratimo se sada na logističku regresiju. Za ulazni skup podataka, možemo definirati log izglednost $\mathcal{L}$ i gubitak $\ell$:
-\begin{equation}
-\mathcal{L} (\theta = \{\boldsymbol{w}, b\} | D) = \sum_{i=0}^{|D|} ln(P(Y = y^{(i)} | x^{(i)}, \boldsymbol{w}, b))
-\label{eq:logistic_likelihood_func}
-\end{equation}
-\begin{equation}
-\ell = (\theta = \{\boldsymbol{w}, b\} | \mathcal{D}) = -\mathcal{L}(\theta = \{\boldsymbol{w}, b\} | \mathcal{D})
-\label{eq:logistic_loss_func}
-\end{equation}
-
-% TODO prebaci ovo u poglavlje Gradijentni spust
-Da bi se algoritam gradijentnog spusta mogao koristiti, potrebno je derivirati funkciju gubitka. Kao prvo, nužno je da je ona derivabilna što je slučaj kod logističke regresije jer se kao prijenosna funkcija $f(x) = \frac{1}{1+e^{-x}}$ koristi logistička sigmoid funkcija. Alati poput Theano-a imaju mogućnost da se funkcija gubitka zada simbolički pa sami alati izvode deriviranje.
-
-\url{http://deeplearning.net/software/theano/tutorial/gradients.html}
-
-Obično se koristi metoda gradijentnog spusta nazvana stohastički gradijentni spust. Neka je $\ell_i(w)$ vrijednost funkcije gubitka na i-tom primjeru za neke parametre $w$.
-
-Kada bi za minimizaciju koristili standardni (ili ''grupni'') gradijentni spust, jedna bi iteracija izgledala ovako:
-\begin{equation}
-    w := w - \alpha \nabla \ell(w) = w - \alpha \sum_{i=1}^n \nabla \ell_i(w),
-\end{equation}
-gdje je $\alpha$ korak učenja (često zvan i stopa učenja).
-
-U mnogo slučajeva, funkcija nad kojom se vrši zbrajanje ima jednostavan oblik koji omogućava brzo izračunavanje zbrajanje i cijelog izraza.
-
-No, postoje funkcije kod kojih izračuvanje sume u gradijentu zahtijeva dugotrajne izračune. Kad je skup za treniranje velik, to postaje problem. Da bi se ubrzalo izvođenje izračuna, u svakoj iteraciji se izvodi gradijenti spust, odnosno izračun funkcije gradijenta. Takvim se postupkom aproksimira pravi gradijent funkcije gubitka gradijentom jednog primjera (jedne iteracije):
-\begin{equation}
-    w := w - \alpha \nabla \ell_i(w).
-\end{equation}
-Prolazom algoritma kroz skup za treniranje izvodi se gornje podešavanje težina za svaki primjer. Potrebno je nekoliko prolaza kroz skup za treniranje dok algoritam ne konvergira. Tipične implementacije još i promješaju skup za učenje prije svakog prolaza.
-
 
 \section{Višeslojni perceptron}
 \label{chap:viseslojni_perceptron}
 
-Do sada spomenuti modeli i arhitekture modeliraju samo jedan biološki neuron, dok je neuronska mreža skup neurona. Spajanjem više modela neurona u više slojeva (u dubinu) i više neurona u širinu, nastaje neuroska mreža. Najjednostavniji model neuronske mreže naziva se višeslojni perceptron.
+Do sada spomenuti modeli i arhitekture modeliraju samo jedan biološki neuron, dok je neuronska mreža skup neurona. Spajanjem više modela neurona u više slojeva (u dubinu) i više neurona u širinu, nastaje neuronska mreža. Najjednostavniji model neuronske mreže naziva se višeslojni perceptron.
 
-Višeslojni perceptron se sastoji od 3 sloja: ulaznog sloja, skrivenog sloja \engl{hidden layer} i izlaznog sloja. Ulazni sloj se sastoji od brojeva koji opisuju neki primjer (vektor značajki nekog primjera), skriveni sloj se sastoji od logističkih neurona i zadnji sloj koji se također sastoji od logističkih neurona (broj izlaznih neurona ovisi o broju razreda u koji se klasificira primjer).
+Višeslojni perceptron sastoji se od 3 sloja: ulaznog sloja, skrivenog sloja \engl{hidden layer} i izlaznog sloja. Ulazni sloj se sastoji od brojeva koji opisuju neki primjer (vektor značajki nekog primjera), skriveni sloj se sastoji od logističkih neurona i zadnji sloj koji se također sastoji od logističkih neurona (broj izlaznih neurona ovisi o broju razreda u koji se klasificira primjer).
 
-Višeslojni perceptron (slika \ref{fig:mlp}) se može promatrati i kao vrsta logističke regresije kod koje su ulazi transformirani pomoću nelinearne transformacije. Svrha tih transformacija je prebaciti ulazne podatke u prostor više dimenzije gdje oni postaju linearno separabilni (budući da je logistička regresija linearni klasifikator). Transformacije izvodi skriveni sloj i on je dovoljan da MLP postane univerzalni aproksimator.
+Višeslojni perceptron (slika \ref{fig:mlp}) može se promatrati i kao vrsta logističke regresije kod koje su ulazi transformirani pomoću nelinearne transformacije. Svrha tih transformacija je prebaciti ulazne podatke u prostor više dimenzije gdje oni postaju linearno separabilni (budući da je logistička regresija linearni klasifikator). Transformacije izvodi skriveni sloj i on je dovoljan da MLP postane univerzalni aproksimator.
 
 \begin{figure}[htb]
 \centering
@@ -212,7 +196,7 @@ Višeslojni perceptron (slika \ref{fig:mlp}) se može promatrati i kao vrsta log
 
 Izlaz višeslojnog perceptrona je tada:
 \begin{equation}
-f(\boldsymbol{x}) = G\{\boldsymbol{W}(2) * (s[\boldsymbol{W}(1) * \boldsymbol{x} + \boldsymbol{b}(1))] + \boldsymbol{b}(2)\}
+f(\boldsymbol{x}) = G\{\boldsymbol{W}(2) \cdot (s[\boldsymbol{W}(1) \cdot \boldsymbol{x} + \boldsymbol{b}(1))] + \boldsymbol{b}(2)\}
 \label{eq:conv}
 \end{equation}
 $G$ i $s$ su aktivacijske funkcije. Za aktivacijsku funkciju se obično odabire logistička sigmoid funkcija ili $\tanh$. $\tanh$ se odabire jer se višeslojna mreža s njime kao prijenosnom funkcijom brže trenira.
@@ -224,14 +208,14 @@ Duboke neuronske mreže (ili kraće, DNN) su naziv za neuronske mreže koje sadr
 
 Recimo da se želi konstruirati sustav za prepoznavanje lica na slici. Mogli bi koristiti jedan model višeslojnog perceptrona koji bi odgovorio na pitanje postoji li oko slici, drugi model koji bi pak odgovorio na pitanje postoje li usta na slici, treći model koji bi odgovorio postoji li kosa na slici. Izlaze tih modela bi mogli spojiti na logističku regresiju koja koristi sve izlaze postojećih modela i vraća odgovor postoji li lice na slici. Duboke neuronske mreže mogu zamijeniti takav složeni sustav, jer omogućuju spajanje više slojeva koji se specijaliziraju za različite dubine apstrakcije, a treniranje i korištenje dubokih mreža je jednostavnije od navednog skupa modela.
 
-DNN su obično dizajnirane kao mreže s unaprijednom propagacijom, no posljednja istraživanja pokazuju da je moguće koristiti i neuronske mreže s povratom \engl{recurrent networks} u dubokim arhitekturama (primjer je modeliranje jezika). Jedna specifična verzija dubokih neuronskih mreža su konvolucijske neuronske mreže koje su vrlo često korištene u računalnom vidu (detaljno opisane u poglavlju \ref{chap:konvolucijske_mreze}).
+DNN su obično dizajnirane kao mreže s unaprijednom propagacijom, no posljednja istraživanja pokazuju da je moguće koristiti i povratne neuronske mreže  \engl{recurrent networks} u dubokim arhitekturama (primjer je modeliranje jezika). Jedna specifična verzija dubokih neuronskih mreža su konvolucijske neuronske mreže koje su vrlo često korištene u računalnom vidu (detaljno opisane u poglavlju \ref{chap:konvolucijske_mreze}).
 
 Pokazalo se da je proces treniranja dubokih neuronskih mreža iznimno težak. Algoritmi bazirani na gradijentnim metodama skloni su pronalasku lokalnih optimuma. Drugi je problem nestajući gradijent \engl{vanishing gradient problem} koji se dešava tokom unazadne propagacije gradijenata jer se iznos gradijenata smanjuje za red veličine po sloju što znači da se gradijent teško prenosi do prednjih slojeva.
 
 Nadalje, iole kompleksnije mreže su vrlo teške za interpretaciju, čak i ako rade dobro, količina parametara je toliko ogromna da je mreža zapravo ''crna kutija'' i nemoguće je analizom ustvrditi zašto dobro rade.
 
 U zadnjih desetak godina slojevitim umjetnim neuronskim mrežama pristupa se
-na novi način. Radi se s nekoliko tehnika koje imaju par zajedničkih aspekata.
+na novi način. Radi se s nekoliko tehnika koje imaju nekoliko zajedničkih aspekata.
 Kod nekih tehnika (autoenkoderi, ograničeni Boltzmanovi strojevi) slojevi se treniraju jedan po jedan, dok kod drugih (konvolucijske mreže) postoji posebna vrsta slojeva koji imaju smanjen broj parametara i rijetko su povezani čime je smanjen broj operacija po sloju.
 
 Kao zajedničko ime za više tehnika koje na ovaj način pristupaju treniranju umjetne neuronske mreže koristi se termin "duboka neuronska mreža". Duboke neuronske mreže na tipičnim klasifikacijskim problemima postižu rezultate koji su među ponajboljima ikad postignutim.
@@ -286,22 +270,22 @@ Neka je $m-1$ sloj ulazni sloj. Tada je vidno polje neurona u sloju m široko 3 
 \end{figure}
 
 Budući da se govori o primjeni u računalnom vidu, ulazi su uglavnom 2D slike.
-Ulaz u konvolucijski sloj ima dimezije $x * y * r$, gdje je $x$ širina slike, $y$ visina slike, a $r$ je broj kanala (konkretno za RGB sliku je $r = 3$). Dimenzionalnost konvolucijskog sloja ne ovisi direktno o ulaznom sloju, već samo o broju kanala i iznosi $d * d * r * k$, gdje je $d$ širina odnosno visina filtera za konvoluciju, $r$ je broj kanala prethodnog sloja, $k$ je broj mapa značajki trenutnog sloja (ekvivalent broju kanala na ulazu). Primjer takvog sloja ima filter dimenzija $7 * 7$ i 20 mapa značajki što daje $7 * 7 * 3 * 20 = 2940$ težina (značajno manje od prije spomenutih 10 milijuna). Naravno, broj mapa značajki se zna penjati i do nekoliko stotina, no broj težina je i u tom slučaju smanjen naspram potpuno povezanog skrivenog sloja.
+Ulaz u konvolucijski sloj ima dimezije $x \cdot y \cdot r$, gdje je $x$ širina slike, $y$ visina slike, a $r$ je broj kanala (konkretno za RGB sliku je $r = 3$). Dimenzionalnost konvolucijskog sloja ne ovisi direktno o ulaznom sloju, već samo o broju kanala i iznosi $d \cdot d \cdot r \cdot k$, gdje je $d$ širina odnosno visina filtera za konvoluciju, $r$ je broj kanala prethodnog sloja, $k$ je broj mapa značajki trenutnog sloja (ekvivalent broju kanala na ulazu). Primjer takvog sloja ima filter dimenzija $7 \cdot 7$ i 20 mapa značajki što daje $7 \cdot 7 \cdot 3 \cdot 20 = 2940$ težina (značajno manje od prije spomenutih 10 milijuna). Naravno, broj mapa značajki se zna penjati i do nekoliko stotina, no broj težina je i u tom slučaju smanjen naspram potpuno povezanog skrivenog sloja.
 
 Gledano s drugog stajališta, neuroni koji čine konvolucijski sloj dijele zajednički vektor težina $\boldsymbol{w}$ i pomak $b$. Time se omogućava da se neka značajka otkrije bez obzira na njezinu lokaciju u ulaznom prostoru. Ova je tehnika vrlo efikasna jer uvelike smanjuje broj parametara sloja, pa time i broj parametara koji se treniraju. I \emph{gradijentni spust} se još uvijek može koristiti za učenje parametara. Slika \ref{fig:conv-nn} prikazuje takav sloj. Težine iste boje su zajedničke neuronima.
 
-U praksi se mapa značajki računa na način da se ulazna slika konvoluira sa linearnim filtrom, doda se pomak $b$ i na dobiveni rezultat primjeni aktivacijska funkcija (aktivacijske funkcije opisane su u poglavlju \ref{chap:aktivacijske_funkcije}).
-
+Mapa značajki, odnosno izlaz konvolucijskog sloja, se dobije ponavljanim apliciranjem funkcije po podregiji slike, ili drugim rječima, konvolucijom ulazne slike s linearnim filterom, dodajući pristranost sloja $b$ i primjenjujući aktivacijsku funkciju. Ako označimo k-tu mapu značajki nekog sloja kao $h^k$, čiji su filteri određeni težinama $W^k$ i pristranošču $b_k$, onda izlaz takve mape značajki možemo zapisati kao:
 \begin{equation}
-h_{ij}^k = f((\boldsymbol{w}^k * \boldsymbol{x})_{ij} + b_k)
-\label{eq:feature_map}
+  h_{ij}^k = f \left( \left( W^k * x \right)_{ij} + b_k \right)
 \end{equation}
+gdje su $ij$ indeksi ulazne ($x$) odnosno izlazne slike (mape značajki).
+U praksi se još svaki konvolucijski sloj sastoji od više mapi značajki, $\{ h^{(k)}, k = 0..K \}$
 
 
 \subsection{Aktivacijske funkcije}
 \label{chap:aktivacijske_funkcije}
 
-Kod logističke funkcije je spomenuto da rezultati množenja ulaza s težinom i zbrajanja s pomakom prolaze još i kroz izlaznu funkciju. Naziv za tu izlaznu funkciju u kontekstu neuronskih mreža je aktivacijska funkcija.
+Aktivacijska funkcija je funkcija koju koristimo nad izlazima sloja neuronske mreže. % TODO mozda nekako bolje?
 Kod logističke regresije aktivacijska funkcija je logistička sigmoid funkcija (formula \ref{eq:logisticka_funkcija}, slika \ref{fig:logistic_sigmoid}) zbog koje je izlaz logističke regresije probabilistički. Logistička funkcija je nelinearna, monotono rastuća funkcija čiji se izlaz asimptotski približava nekoj konačnoj vrijednosti (na primjer, broju 1) dok ulaz raste prema $\pm \inf$. Zbog tih svojstava MLP (poglavlje \ref{chap:viseslojni_perceptron}) može aproksimirati proizvoljnu nelinearnu funkciju.
 
 \begin{figure}[htb]
@@ -333,7 +317,7 @@ Hiperbolna tangent funkcija se više preferira kao aktivacijska funkcija iz isto
 
 Autor u radu \cite{lecun-98b} preporuča korištenje logističke funkcije $f(x) = 1.7159 tanh(\frac{2}{3} x)$. Konstante u navedenoj funkciji su odabrane tako da, ako je ulaz normaliziran, izlazi će isto imati varijancu blizu 1. Konkretni sigmoid ima i sljedeća svojstva: (a) $f(\pm 1) = \pm 1$, (b) druga derivacija ima maksimum u točki $x = 1$.
 
-Logističke funkcije u svojim izrazima često sadrže potencije prirodnog logaritma na neku realnu potenciju $e^{x}, x \in R$, što je računalno prilično zahtjevno. Taj se problem rješava aproksimacijom konkretnog izraza polinomijalnog funkcijom.
+Logističke funkcije su često definirane izrazima koji sadrže potenciranje prirodnog logaritma $e^{x}, x \in R$, što je računalno prilično zahtjevno. Taj se problem rješava aproksimacijom konkretnog izraza polinomijalnog funkcijom.
 
 % http://web.stanford.edu/~awni/papers/relu_hybrid_icml2013_final.pdf
 Drugi je problem nestajući gradijent \engl{vanishing gradient problem}. Nestajući gradijent je pojava koja se događa kada neuroni nekog sloja duboke neuronske mreže imaju gradijente blizu nule jer su izlazi sloja bili blizu zasićenja, odnosno blizu asimptota (koje su često $\pm 1$). Gradijenti blizu nule uzrokuju sporu konvergenciju jer malen iznos gradijenta znači i malu promjenu težina, a pokazalo se i da takve mreže često zaglave u lokalnim minimumima.
@@ -391,7 +375,7 @@ U početnim se slojevima mreže izmjenjuju slojevi sažimanja maksimalnog odziva
 
 \chapter{Učenje mreže}
 
-''Učenjem'' modela naziva se postupak pronalaska optimalnih parametara modela. Optimalni parametri su oni koji danim modelom modeliraju skup podataka za učenje, $\mathcal{D}$. No, modeli se često znaju prilagoditi skupu podataka za učenje pa se zapravo relevantni rezultati dobivaju kad se model testira na neviđenim podacima.
+''Učenjem'' modela naziva se postupak pronalaska optimalnih parametara modela. Optimalni parametri su oni koji danim modelom modeliraju skup podataka za učenje, $\mathcal{D}$. No, modeli se često znaju previše dobro prilagoditi skupu podataka za učenje pa se zapravo relevantni rezultati dobivaju kad se model testira na neviđenim podacima.
 
 Rješenje za optimalne parametre neuronskih mreža nije dostupno u zatvorenoj formi pa se poseže za gradijentnim metodama koje onda kroz iteracije pronalaze optimalne parametre. To znači da nam je potrebna ciljna funkcija, funkcija čiji rezultat nam govori koliko su parametri modela dobri.
 
@@ -415,28 +399,270 @@ No, budući da jedan-nula gubitak nije derivabilan pa je nemoguće provoditi met
 NLL(\theta, \mathcal{D}) = - \sum_{i = 0}^{\abs{\mathcal{D}}} \log P(Y = y^{(i)} | x^{(i)}, \theta)
 \end{equation}
 
-\section{Algoritam unazadne propagacije, engl. backpropagation}
-Općeniti opis, formula, primjer. Prilagodba za konvolucijski sloj.
+
+\section{Algoritam unazadne propagacije, \emph{engl. backpropagation}}
+
+Algoritmom unazadne propagacije izvode se izrazi za gradijente (iznose derivacija) parametara mreže. Ti se izrazi kasnije koriste u algoritmu gradijentnog spusta za ugađanje parametara.
+
+Algoritam unazadne propagacije prvi je put predstavljen 1970-ih, ali popularnost i prihvaćanje je stekao tek 1986. kad je Hinton izdao poznati rad koji opisuje nekoliko tada poznatih tipova neuronskih mreža i njihovo učenje unazadnom propagacijom koje je bilo brže od prije korištenih metoda učenja i omogućavalo rješavanje problema, koji su do tada bili nerješivi, uz pomoć neuronskih mreža. Do danas je ta metoda učenja postala najproučavanija i nakorištenija.
+
+Slijedi izvod algoritma unazadne propagacije za neuronsku mrežu s $d$ ulaza, $m$ izlaza i $l$ skrivenih slojeva. $l+1$ sloj je izlazni sloj.
+Ulaz u sloj $k$ je $\boldsymbol{x}^{(k)}$, a izlaz iz sloja je $\boldsymbol{x}^{(k+1)}$.
+
+Mreža se uči nad skupom za učenje od N parova $(\boldsymbol{x}_i, \boldsymbol{t}_i)$. Vektor $\boldsymbol{x}_i$ je $d$ dimenzionalan, vektor $\boldsymbol{t}_i$ je $m$ dimenzionalan, a $i \in \left\{ 0..N-1 \right\}$. Mreža koristi sigmoidalnu prijenosnu funkciju:
+\begin{equation}
+  f(\boldsymbol{x}) = \frac{1}{1 + e^{-\boldsymbol{x}}}
+\end{equation}
+i funkciju gubitka (srednja kvadratna pogreška):
+\begin{equation}
+  E = \frac{1}{2N} \sum_{n=1}^{N} \sum_{o=1}^{m} \left( t_{n,o} - y_{n,o} \right)^2
+    = \frac{1}{2N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n}^{(l+1)} \right)^2
+\end{equation}
+gdje je
+\begin{equation} % y(n)
+	\boldsymbol{y}_n = \boldsymbol{x}_n^{(l+1)} = (W^{l+1} \boldsymbol{x}_n^{(l)} + \boldsymbol{b}^{(l)}) = f(\boldsymbol{net}^{(l+1)})
+\end{equation}
+\begin{equation} % net(n)
+    \boldsymbol{net}^{(k)}_n = W^{k} \boldsymbol{x}_n^{(k-1)} + \boldsymbol{b}^{(k)}
+\end{equation}
+
+Traže se vrijednosti težina mreže da funkcija $E$ bude minimalna, odnosno želimo izračunati izraz za $\frac{\partial E}{\partial W^{(k)}}$ koji ćemo koristiti kod ugađanja težina:
+\begin{equation}
+W^{(k)}(t) = W^{(k)}(t-1) - \epsilon \frac{\partial E}{\partial W^{(k)}}(t)
+\end{equation}
+gdje je $k \in \left\{ 1..l+1 \right\}$, $W^{(k)}$ matrica težina sloja $k$, $t$ je oznaka trenutnog koraka, a $t-1$ oznaka prethodnog koraka.
+
+Parcijalna derivacija funkcije gubitka po težinama za izlazni sloj je:
+\begin{equation} % pocetak deriviranja
+\begin{split}
+  \frac{\partial E}{\partial W^{(l+1)}}
+    &= \frac{\partial}{\partial W^{(l+1)}} \left[ \frac{1}{2N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right)^2 \right] \\
+    &= \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) \frac{\partial \boldsymbol{y}_n}{\partial W^{(l+1)}} \\
+    &= \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) \frac{\partial \boldsymbol{y}_n}{\partial \boldsymbol{net}_n^{(l+1)}} \frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l+1)}}
+\end{split}
+\end{equation}
+
+\begin{equation}  % net / W
+\label{eq:parc_net_over_parc_w}
+  \frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l+1)}}
+    = \frac{\partial}{\partial W^{(l+1)}} \left[ W^{(l+1)} \boldsymbol{x}_n^{(l)} + \boldsymbol{b}^{(l+1)} \right]
+    = \boldsymbol{x}_n^{(l)}
+\end{equation}
+
+Budući da je $\boldsymbol{y}_n$ zapravo $\boldsymbol{y}_n = f(\boldsymbol{net}_n^{(l+1)} )$, gdje je $f$ logistička funkcija čija je derivacija $f'(x) = f(x) [1 - f(x) ]$, slijedi da je:
+\begin{equation} % d y / d net
+  \frac{\partial \boldsymbol{y}_n}{\partial \boldsymbol{net}_n^{(l+1)}}
+    = f\left(\boldsymbol{net}_n^{(l+1)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l+1)}\right) \right]
+\end{equation}
+iz čega onda dobijemo:
+\begin{equation}
+\begin{split}
+  \frac{\partial E}{\partial W^{(l+1)}}
+    &= \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) f\left(\boldsymbol{net}_n^{(l+1)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l+1)}\right) \right] \boldsymbol{x}_n^{(l)} \\
+    &= \frac{-1}{N} \sum_{n=1}^{N} \delta_n^{(l+1)} \boldsymbol{x}_n^{(l)}
+\end{split}
+\end{equation} % delta (l+1)
+gdje se $\delta_n^{(l+1)}$ definira kao:
+\begin{equation} 
+\label{eq:delta_lastlayer}
+  \delta_n^{(l+1)}
+    = \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) f\left(\boldsymbol{net}_n^{(l+1)}\right) \left[ 1 - \boldsymbol{net}_n^{(l+1)} \right]
+    = \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) f'\left(\boldsymbol{net}_n^{(l+1)}\right)
+\end{equation}
+a $\boldsymbol{x}_n^{l}$ je ulaz u izlazni sloj.
+
+Uzmimo sada za primjer matricu težina nekog skrivenog sloja $l$. Izvod započinje slično:
+\begin{equation} % zapocinje izvod za skriveni sloj dE / dW
+\label{eq:e_over_w_hidden_layer}
+\begin{split}
+  \frac{\partial E}{\partial W^{(l)}}
+    &= \frac{\partial}{\partial W^{(l)}} \left[ \frac{1}{2N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right)^2 \right] \\
+    &= \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) \frac{\partial \boldsymbol{y}_n}{\partial W^{(l)}} \\
+    &= \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) \frac{\partial \boldsymbol{y}_n}{\partial \boldsymbol{net}_n^{(l+1)}} \frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l)}}
+\end{split}
+\end{equation}
+
+Izraz $\frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l+1)}}$ smo već derivirali u \ref{eq:parc_net_over_parc_w}, a izraz $\frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l)}}$ deriviramo kao:
+\begin{equation} % d net / d W
+\begin{split}
+  \frac{\partial \boldsymbol{net}_n^{(l+1)}}{\partial W^{(l)}}
+    &= \frac{\partial}{\partial W^{(l)}} \left[ W^{(l+1)} \boldsymbol{x}_n^{(l)} + \boldsymbol{b}^{(l+1)} \right] \\
+    &= W^{(l+1)} \frac{\partial \boldsymbol{x}_n^{(l)}}{\partial W^{(l)}} \\
+    &= W^{(l+1)} \frac{\partial f \left( \boldsymbol{net}_n^{(l)} \right) }{\partial W^{(l)}} \\
+    &= W^{(l+1)} \frac{\partial f \left( \boldsymbol{net}_n^{(l)} \right)}{\partial \boldsymbol{net}_n^{(l)}} \frac{\partial \boldsymbol{net}_n^{(l)}}{\partial W^{(l)}} \\
+    &= W^{(l+1)} f\left(\boldsymbol{net}_n^{(l)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l)}\right) \right] \boldsymbol{x}_n^{(l-1)}
+\end{split}
+\end{equation}
+
+Kad to uvrstimo natrag u izraz \ref{eq:e_over_w_hidden_layer} dobijemo:
+\begin{equation}
+  \frac{\partial E}{\partial W^{(l)}}
+    = \frac{-1}{N} \sum_{n=1}^{N} \left( \boldsymbol{t}_{n} - \boldsymbol{y}_{n} \right) f\left(\boldsymbol{net}_n^{(l+1)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l+1)}\right) \right] W^{(l+1)} f\left(\boldsymbol{net}_n^{(l)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l)}\right) \right] \boldsymbol{x}_n^{(l-1)}
+\end{equation}
+što se može kraće zapisati kao:
+\begin{equation}
+  \frac{\partial E}{\partial W^{(l)}}
+    = \frac{-1}{N} \sum_{n=1}^{N} \delta_n^{(l)} \boldsymbol{x}_n^{(l-1)}
+\end{equation}
+gdje je $\delta^{(l)}$ jednak:
+\begin{equation} % delta (l)
+\label{eq:delta_hiddenlayer}
+\begin{split}
+  \delta^{(l)}
+    &= \delta^{(l+1)} W^{(l+1)} f\left(\boldsymbol{net}_n^{(l)}\right) \left[ 1 - f\left(\boldsymbol{net}_n^{(l)}\right) \right] \\
+    &= \delta^{(l+1)} W^{(l+1)} f'\left(\boldsymbol{net}_n^{(l)}\right) \\
+\end{split}
+\end{equation}
+a $l$ je proizvoljni skriveni sloj.
+
+Vidi se da su izrazi za $\frac{\partial E}{\partial W^{(l)}}$ jednaki:
+\begin{equation}
+  \frac{\partial E}{\partial W^{(k)}}
+    = \frac{-1}{N} \sum_{n=1}^{N} \delta_n^{(k)} \boldsymbol{x}_n^{(k-1)}
+\end{equation}
+gdje je $k$ ili skriveni ili izlazni sloj. Drugačiji je samo način na koji se računa $\delta^{(k)}$. Za zadnji sloj se koristi izraz \ref{eq:delta_lastlayer}, dok se za skriveni sloj koristi izraz \ref{eq:delta_hiddenlayer} koji koristi već izračunati $\delta_n$ idućeg sloja. Upravo se zato algoritam naziva ''algoritam unazadne propagacije'' jer se kreće od zadnjeg (izlaznog sloja) i pogreška, odnosno podešavanje težina, se propagira prema prvom (ulaznom) sloju.
 
 \section{Gradijentni spust}
-Motivacija, definicija, vrste gradijentnih spusteva.
+
+Gradijentni spust je optimizacijski algoritam, odnosno algoritam pronalaska minimuma derivabilne konveksne funkcije. Algoritam gradijentnog spusta traži lokalni minimum na način da u trenutnoj točki traži smjer gradijenta funkcije i zatim napravi pomak u negativnom smjeru gradijenta. Ako je korak dovoljno malen, nova vrijednost trenutne točke će biti manja od prethodna. U slučaju da je pomak prevelik, moguće je da se pomaknemo na suprotnu padinu funkcije i zapravo povećamo vrijednost funkcije u trenutnoj točki. Korak algoritma označava se konstantom, $\eta$.
+
+Neka je $f(x)$ funkcija čiji minimum tražimo, $a$ trenutna točka, $t$ je trenutni korak, a $t-1$ je prethodni korak. Jedan korak algoritma je onda:
+\begin{equation}
+  a(t) = a(t-1) - \eta f' \left( a(t-1) \right)
+\end{equation}
+ili za funkciju $F$ s više parametara:
+\begin{equation}
+  a(t) = a(t-1) - \eta \frac{\partial F}{\partial x} \left( a(t-1) \right)
+\end{equation}
+
+Pod uvjetom da je $\epsilon$ dovoljno malen biti će $f(a(t)) < f(a(t-1))$, odnosno pomaknut ćemo se u točku koja je bliže minimumum funkcije.
+
+Kod neuronskih mreža funkcija koju optimiramo je funkcija gubitka $E$, a točka koju pomičemo je višedimenzionalna točka čija svaka dimenzija predstavlja jednu težinu neuronske mreže.
+
+Da bi se algoritam gradijentnog spusta mogao koristiti za podešavanje težina u neuronskim mrežama, potrebno je derivirati funkciju gubitka. Kao prvo, nužno je da je ona derivabilna što je slučaj kod logističke regresije jer se koristi logistička sigmoid funkcija $f(x) = \frac{1}{1+e^{-x}}$. Njena derivacija je:
+\begin{equation}
+\begin{split}
+  f' (x) &= \left( \frac{1}{1 + e^{-x}} \right)' = \frac{0 \cdot (1 + e^{-x}) - 1 \cdot (1 + e^{-x})'}{(1 + e^{-x})^2} \\
+         &= \frac{-e^{-x} \cdot (-1)}{(1 + e^{-x})^2} = \frac{1}{1 + e^{-x}} \cdot \frac{e^{-x}}{1 + e^{-x}} \\
+		 &= \frac{1}{1 + e^{-x}} \cdot \frac{1 - 1 + e^{-x}}{1 + e^{-x}} = \frac{1}{1 + e^{-x}} \cdot \frac{(1 + e^{-x}) - 1}{1 + e^{-x}} \\
+		 &= \frac{1}{1 + e^{-x}} \cdot \left[ \frac{1 + e^{-x}}{1 + e^{-x}} + \frac{-1}{1 + e^{-x}} \right] = f(x) \left[ 1 - f(x) \right]
+\end{split}
+\end{equation}
 
 \subsection{Stohastički gradijentni spust}
-Prednosti, nedostaci, razlika
 
-\subsection{RMS prop}
-Motivacija, varijante RMS propa, 
-prednosti, nedostaci
+TODO doraditi, uskladiti oznake
+
+Obično se koristi metoda gradijentnog spusta nazvana stohastički gradijentni spust. Neka je $E_n(w)$ vrijednost funkcije gubitka na n-tom primjeru za neke parametre $w$.
+
+Kada bi za minimizaciju koristili standardni (ili ''grupni'') gradijentni spust, jedna bi iteracija izgledala ovako:
+\begin{equation}
+    w := w - \eta \nabla E(w) = w - \eta \sum_{n=1}^N \nabla E_i(w),
+\end{equation}
+gdje je $\eta$ korak učenja (često zvan i stopa učenja).
+
+U mnogo slučajeva, funkcija nad kojom se vrši zbrajanje ima jednostavan oblik koji omogućava brzo izračunavanje zbrajanje i cijelog izraza.
+
+No, postoje funkcije kod kojih izračuvanje sume u gradijentu zahtijeva dugotrajne izračune. Kad je skup za treniranje velik, to postaje problem. Da bi se ubrzalo izvođenje izračuna, u svakoj iteraciji se izvodi gradijenti spust, odnosno izračun funkcije gradijenta. Takvim se postupkom aproksimira pravi gradijent funkcije gubitka gradijentom jednog primjera (jedne iteracije):
+\begin{equation}
+    w := w - \eta \nabla E_n(w).
+\end{equation}
+Prolazom algoritma kroz skup za treniranje izvodi se gornje podešavanje težina za svaki primjer. Potrebno je nekoliko prolaza kroz skup za treniranje dok algoritam ne konvergira. Tipične implementacije još i promješaju skup za učenje prije svakog prolaza.
+
+Ako je skup podataka velik i jako redundantan, gradijent na prvoj polovici skupa je skoro identičan gradijentu na drugoj polovici skupa. Umjesto računanja gradijenata za cijeli skup podataka, težine mreže se mogu ugoditi nakon računanja gradijenata za svaku polovicu skupa. Ako dijeljnjem skupa podataka odemo u krajnost, dolazimo do stohastičkog gradijentnog spusta (nazivan još i \emph{online} učenje) gdje se težine ugađaju nakon svakog primjera iz skupa za učenje, čime se konvergencija ubrzava jer nije potrebno računati gradijent svih uzoraka da bi došlo do ugađanja težina.
+
+Za većinu problema najboljim se pokazalo učenje korištenjem male serije skupa podataka \engl{mini-batch learning}. Budući da je ugađanje težina mreže računalno skupo, takva metoda učenje je brža od običnog stohastičkog gradijentnog spusta jer nema ugađanja težina nakon svakog primjera. Do ubrzavanja dolazi i jer se kod računanja gradijenata za seriju primjera koristi puno matričnog množenja koje je u današnjim arhitekturama računalnih sustava jako efikasno, pogotovo ako se koriste grafičke kartice.
+
+\subsection{\emph{Momentum} metoda}
+
+Za višeslojne neuronske mreže višedimenzionalna ravnina funkcije pogreške je kompliciranog oblika, ali se lokalno može aproksimirati kao kvadratna posuda. Njen vertikalni presjek je onda parabola, a horizontalni elipsa.
+
+(slika)
+
+Uzmimo za primjer kretanje loptice na takvoj funkciji pogreške. Loptica će krenuti u smjeru lokalnog gradijenta, ali jednom kad nakupti brzinu ići će više u smjeru centra kvadratne posude nego u smjeru gradijenta. Njen moment će je natjerati da ide u smjeru ovisnom o prethodnom kretanju.
+
+Slična je stvar i s \emph{momentum} metodom koja uzima u obzir gradijente prethodnih koraka i tako prigušuje oscilacije u promjeni smjera, a povećava brzinu u smjeru konzistentnih gradijenata.
+
+Gradijenti imaju utjecaj na povećanje prethodne brzine (konstanta $\alpha$ polako smanjuje brzinu, ima iznos malo manji od 1, često 0.9):
+\begin{equation}
+\boldsymbol{v}(t) = \alpha \boldsymbol{v}(t-1) - \epsilon \frac{\partial E}{\partial \boldsymbol{w}}(t)
+\end{equation}
+
+Promjena težina je ekvivalentna trenutnoj brzini:
+\begin{equation}
+\begin{split}
+	\Delta \boldsymbol{w}(t) &= \boldsymbol{v}(t) \\
+		&= \alpha \boldsymbol{v}(t-1) - \epsilon \frac{\partial E}{\partial \boldsymbol{w}}(t) \\
+		&= \alpha \boldsymbol{w}(t-1) - \epsilon \frac{\partial E}{\partial \boldsymbol{w}}(t)
+\end{split}
+\end{equation}
 
 \subsection{Resilient propagation (RProp)}
-Opis, prednosti, nedostatci, varijente (Rprop+, Rprop-)
+
+Rprop metoda, poput stohastičkog gradijentnog spusta, koristi lokalne gradijente da bi ugodila parametre težina mreže. Razlika je da se za Rprop koristi samo predznak  derivacija, što znači da je veličina koraka neovisna o amplitudi gradijenta. Ova metoda se koristi samo kod ugađanja težina nakon svih viđenih primjera iz skupa za učenje \engl{full batch learning}.
+
+Rprop metoda mijenja korak promjene težine za svaku težinu posebno:
+\begin{itemize}
+	\item povećava korak množenjem s određenim faktor (na primjer 1.2) ako su posljednja dva predznaka gradijenta jednaka
+    \item smanjuje korak množenjem s određenim faktor (na primjer 0.5) ako se posljedva dva predznaka gradijenta razlikuju
+\end{itemize}
+
+Pojasnimo na primjeru zašto Rprop ne radi dobro kod stohastičkog gradijentog spusta (ugađanja težina nakon svakog primjera). Neka jedna težina mreže ima gradijent +0.1 na devet primjera i gradijent od -0.9 na jednom primjeru. Tada želimo da ta težina ostane otprilike ista, a Rprop će povećati težinu devet puta i smanjiti jednom za otprilike isti iznos.
+
+Postoji više varijanti RProp algoritma: RProp+, RProp-, iRPop+, iRPRop-. U nastavku će biti opisana iRProp- varijanta koja se često koristi. Budući da promjena težina ne ovisi o iznosu gradijenta, definiraju se ''vrijednosti promjene'' za čiji iznos se podešavaju težine:
+\begin{equation}
+  \Delta w_{ij}(t) =
+    \left\{
+	    \begin{array}{ll}
+		    -\Delta_{ij}(t)  & \mbox{ako} \frac{\partial E}{\partial w_{ij}}(t) > 0 \\
+		    +\Delta_{ij}(t)  & \mbox{ako} \frac{\partial E}{\partial w_{ij}}(t) < 0\\
+		    0  & \mbox{inače}
+	    \end{array}
+    \right.
+\end{equation}
+gdje $\frac{\partial E}{\partial w_{ij}}(t)$ označava sumu gradijenata za sve primjere.
+
+Drugi korak postupka je određivanje novih ''vrijednosti promjene'' $\Delta_{ij}(t)$ za svaki parametar mreže (svaku težinu i pristranost).
+\begin{equation}
+  \Delta{ij}(t) =
+    \left\{
+	    \begin{array}{ll}
+		    \eta^{+} * \Delta_{ij}(t-1)  & \mbox{ako} \frac{\partial E}{\partial w_{ij}}(t) * \frac{\partial E}{\partial w_{ij}}(t) > 0 \\
+		    \eta^{-} * \Delta_{ij}(t-1)  & \mbox{ako} \frac{\partial E}{\partial w_{ij}}(t) * \frac{\partial E}{\partial w_{ij}}(t) < 0\\
+		    \Delta_{ij}(t-1)  & \mbox{inače}
+	    \end{array}
+    \right.
+\end{equation}
+gdje je $0 < \eta^{-} < 1 < \eta^{+}$. Često se u implementacijama koriste vrijednosti $\eta^{-} = 0.5$ i $\eta^{+} = 1.2$.
+
+Ili rječima: svaki put kada parcijalna derivacija neke težine promjeni predznak, što znači da je prošlo ugađanje težina bilo preveliko i preskočio se lokalni minimum, ''vrijednost promjene'' se smanji s faktorom $\eta^{-}$. Ako se predznak nije promijenio, ''vrijednost promjene'' se lagano uveća s faktorom $\eta^{+}$, tako da postupak akcelerira po plitkim područjima.
+
+\subsection{RMS prop}
+
+\emph{Rmsprop} metoda, kao i stohastički gradijentni spust koristi malene lokalne pomake da bi ugodila težine. Razlika je što \emph{Rmsprop} kod računanja gradijenata u svakom koraku računa i eksponencijalni pomični prosjek \engl{exponential moving average, EMA} kvadrata gradijenata. Za svako ugađanje, EMA se koristi kako bi se izračunao korijen iz srednjih kvadrata \engl{root mean square, RMS} vrijednosti gradijenata koji su dobiveni u prošlim koracima. Trenutna vrijednost gradijenata se zatim podijeli s korijenom srednjih kvadrata.
+
+Neka je gradijent neke težine $W$ definiran s $grad = \frac{\partial E}{\partial W}$. Eksponencijalni pomični prosjek gradijenata onda možemo definirati s:
+\begin{equation}
+  \boldsymbol{s}(t) = \aleph \cdot \boldsymbol{s}(t-1) + (1 - \aleph) \cdot grad^2
+\end{equation}
+Opisana varijanta Rmspropa \cite{Graves13} koristi i \emph{momentum} metodu ugrađenu u sam postupak Rmspropa.
+\begin{equation} % v
+  \boldsymbol{v}(t) = \alpha \boldsymbol{v}(t-1) - \eta \frac{grad}{\sqrt{s + \epsilon}}
+\end{equation}
+\begin{equation} % w
+  W(t) = W(t-1) + \boldsymbol{v}(t)
+\end{equation}
+gdje je $s$ trenutni iznos eksponencijalnog pomičnog prosjeka, $\aleph$ je konstanta eksponencijalnog pomičnog prosjeka (koristi se vrijednost 0.95),  $\boldsymbol{v}$ je trenutna brzina, $\alpha$ je \emph{momentum} konstanta, $\eta$ je stopa učenja (koristi se vrijednost 0.001), $W$ je matrica težina nekog sloja, a $\epsilon$ je konstanta koja sprječava dijeljenje s nulom.
+
 
 \section{Regularizacija}
+
 Regularizacija je često korištena tehnika u strojnom učenju, a odnosi se na postupak pružanja dodatnih informacija funkciji gubitka kako bi se rješio problem šuma u ulaznom skupu podataka i problem prenaučenosti. Prenaučenost je pojava tokom učenja modela kad se model prilagodi skupu za učenje u tolikoj mjeri da točnost na skupu za provjeru \engl{validation set} počne padati, iako se točnost na skupu za učenje povećava.
 
 Regularizacijom se sprječava da se model previše prilagodi skupu za učenje tako da pogreška na neviđenim podacima bude manja (skupu za provjeru) iako se pogreška na skupu za učenju još može smanjiti. U idućim poglavljima navedene su najčešće tehnike za regularizaciju modela dubokih neuronskih mreža.
 
 \subsection{$L_1$ i $L_2$ regularizacija}
+
 $L_1$ norma je suma apsolutnih iznosa kartezijevih komponenti vektora. Drugačije gladajući, $L_1$ norma se definira kao suma projekcija vektora na koordinatne osi. Za neki vektor $\boldsymbol{x}$ se $L_1$ norma definira kao:
 \begin{equation}
 \norm{\boldsymbol{x}}_1 = \sum_{i = 1}^{n} \abs{x_i}
@@ -494,23 +720,22 @@ Kod mreža s više slojeva, \emph{dropout} kod ulaznih slojeva je manji, koristi
 Ako se duboka mreža lako prenauči, \emph{dropout} će osjetno smanjiti grešku. No, ako se mreža ne može prenaučiti, onda je potrebno koristiti mrežu s više parametara (širu ili dublju).
 % Hinton: nips2012_hinton_networks_01.pdf
 
-\section{Stopa učenja}
-Kako utječe na učenje, kad mijenjati, kako.
-
-\section{Uvjeti zaustavljanja}
-Načini određivanja trenutka zaustavljanja
 
 \chapter{Semantička segmentacija}
-Definicija semantičke segmentacije
 
-\section{Opis}
-primeri, slike
+Semantička segmentacija je proces pridavanja labele svakom pikselu slike. Labele su obično oznake objekata koji su predstavljeni slikom.
+Semantička segmentacija spaja klasične probleme detekcije objekata, segmentacije slika i višeklasne klasifikacije u jedan proces.
 
-\section{Primjene}
-Motivacija?
+Prepoznavanje nekog tipa objekta na slici se uglavnom temelji na tome da tražimo objekte slične teksture i sličnih obrisa, ali ponekad niti te dvije stvari ne govore točno koji je to objekt. Takvi zadaci znaju biti teški i za ljudske označivaće, stoga automatizacija takvog zadatka računalima nije nimalo jednostavna.
+
+Postavljaju se dva vrlo važna pitanja: kako dobro prikazati slikovne informacije u sustavu za označavanje scene i kako te informacije iskoristiti za interpretaciju. Budući da je ideja konvolucijskih mreža da rade kao detektori značajki, konvolucijske mreže se u praksi koriste i za izvlačenje značajki i za klasifikaciju.
+
+Razumijevanje scena je jako važno kod mnogih primjena, a posebno kod robotike. Jedan od važnih ciljeva u području robotike je omogućiti robotima da se autonomno kreću kroz prostor koji dijele s ljudima. Najvažnija stvar u implementaciji takvog sustava je prepoznavanje i intepretacija okoline.
+
+slika
 
 \section{Testni skupovi}
-Skupovi podataka korišteni u evaluaciji.
+Skupovi podataka korišteni u evaluaciji...
 
 \subsection{Stanford Background Dataset}
 Vrste oznaka, veličine slika, zastupljenost oznaka - histogram
@@ -518,6 +743,54 @@ Vrste oznaka, veličine slika, zastupljenost oznaka - histogram
 \subsection{SIFT Flow}
 Vrste oznaka, veličine slika, zastupljenost oznaka - histogram
 Standardni dataset, popis rezultata
+
+
+\chapter{Implementacija}
+
+U okviru ovog rada implementirana je radna okolina\footnote{https://github.com/iborko/theano-conv-semantic} \engl{framework} za semantičku segmentaciju. U pozadini se koristi alat \textit{Theano}\footnote{Theano, http://deeplearning.net/software/theano/} \cite{Theano-2012} \cite{Theano-2010} koji služi za definiranje, optimiranje i prevođenje simboličkih izraza u C++ ili CUDA programski kod.
+
+Neke od prednosti korištenja alata \textit{Theano} su:
+\begin{itemize}
+	\item omogućuje paraleno korištenje CPU-a i GPU-a što ima za posljedicu da se algoritmi i programi mogu pisati i analizirati na nekom lošijem računalu, dok se ne ustvrdi da rade dobro, a kasnije pokretati na računalima s moćnim grafičkim karticama bez kojih je obzbiljiniji rad s velikim skupovima podataka i dubokim mrežama praktički nezamisliv
+    \item optimiranje simboličkih izraza, što znači da se nijedan izraz neće računati više od jednom
+    \item aritmetička pojednostavljenja, na primjer: $(x \cdot y)/x$ postaje $y$
+    \item ugrađeno računanje gradijenata
+    \item ugrađene metode za poboljšanje numeričke stabilnosti određenih matematičkih izraza
+    \item ugrađen konvolucijski operator $\left( * \right)$
+\end{itemize}
+Mana korištenja \textit{Theana} je upravo to što to nije programski jezik, već se u programskom jeziku \textit{Python} pišu izrazi za \textit{Theano}. Za takvo pisanje izraza je potreban malo drugačiji način razmišljanja koji zahtijeva privikavanje.
+
+Iako su neki alati, poput \textit{Caffe-a} i \textit{PyLearna-a}, jednostavniji za korištenje, mnogo je teže nadograđivati funkcionalnosti jer to iziskuje pisanje C++ i CUDA koji mora biti kompatibilan s već napisanim kodom, dok se u \textit{Theanu} samo definira simbolički izraz za novu funkcionalnost. U trenutku početka rada nisu postojali alati za semantičku segmentaciju, a eventualna proširenja postojećih alata za klasifikaciju bila su u razvoju.
+
+Parametri algoritma poput arhitekture mreže, stope učenja, načina pretprocesiranja, vrste algoritma gradijentne optimizacije, i slično, se definiraju u konfiguracijskoj datoteci u JSON formatu koja se predaje kao argument skriptama za generiranja ulaza (pretprocesiranje) i učenje:
+\begin{lstlisting}[language=bash]
+    python generate.py network.conf
+    python train.py network.conf
+\end{lstlisting}
+gdje je \texttt{network.conf} konfiguracijska datoteka u JSON formatu.
+
+TODO: dodati appendix s primjerom jedne konfiguracijske datoteke.
+
+\section{Podatci}
+Svaki skup podataka semantički segmentiranih slika koji se koristi mora imati svoju skriptu za ucitavanje u mapi \texttt{dataset}. Tamo već postoje skripte \texttt{loader\_iccv.py} i \texttt{loader\_sift.py} za učitavanje pripadnih datasetova. Svaka \texttt{loader\_*.py} skripta mora imati \texttt{load\_dataset(path)} funkciju koja vraća listu (ili iterator) \texttt{Sample} objekata. Klasa \texttt{Sample} je definirana u \texttt{dataset/sample.py} datoteci i sadrži naziv primjera, ulaznu sliku i segmentiranu sliku. Ulazne slike su u obliku \emph{numpy}\footnote{\textit{numpy}, ekstenzija jezika \textit{Python} koja dodaje podršku za višedimenzionalne brojevne nizove i podržava razne matematičke operacije nad njima, http://www.numpy.org} tenzora s 3 dimenzije: visina, sirina i broj kanala, a izlazne slike su u obliku \emph{numpy} matrica gdje je element matrice oznaka (redni broj) pripadnog piksela.
+
+\section{Predprocesiranje}
+Pomoću konfiguracijske datoteke moguće je definirati niz funkcija koja se koriste tokom predprocesiranja. Neki od primjera funkcija:
+\begin{description}
+  \item[yuv] pretvara RGB kanale u YUV kanale
+  \item[int\_to\_float] pretvara intezitete iz raspona od 0 do 255 (cijeli brojevi) u raspon 0 do 1 (decimalni brojevi)
+  \item[normalize] normalizira sliku tako da ima srednju vrijednost inteziteta 0 i standardnu devijaciju 1
+\end{description}
+
+\section{Arhitektura mreže}
+TODO
+
+\section{Stopa učenja}
+Kako utječe na učenje, kad mijenjati, kako.
+
+\section{Uvjeti zaustavljanja}
+Načini određivanja trenutka zaustavljanja
+
 
 \chapter{Rezultati}
 TODO
