@@ -150,8 +150,8 @@ def main(gen_func, n_layers, show=False):
     samples = list(samples)
 
     #   use only subset of data TODO remove this
-    DATA_TO_USE = 30
-    samples = samples[:DATA_TO_USE]
+    # DATA_TO_USE = 30
+    # samples = samples[:DATA_TO_USE]
 
     random.seed(23455)
     random.shuffle(samples)

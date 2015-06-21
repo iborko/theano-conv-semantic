@@ -61,11 +61,10 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     """
     assert(type(conf) is dict)
     n_epochs = conf['epochs']
-    if n_epochs <= 0:
+    if n_epochs < 0:
         n_epochs = maxint
 
     # how often to lower learning rate if no improvement
-    improvement_check_best_loss = numpy.inf
     epochs_check_learn_rate = None
     if 'learning-rate-decrease-params' in conf:
         lrdp_params = conf['learning-rate-decrease-params']
@@ -153,17 +152,15 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                     # improve patience if loss improvement is good enough
                     if this_validation_loss < best_validation_loss *  \
                             improvement_threshold:
-                        old_patience = patience
                         patience = max(patience,
-                                       8 + int(iter * patience_increase))
-                        if patience != old_patience:
-                            logger.info("Patience increased to %d",
-                                        int(patience / n_train_batches))
+                                       10 * n_train_batches + int(iter * patience_increase))
+		        logger.info("Patience increased to %d epochs",
+				    int(patience / n_train_batches))
+                        best_epoch = epoch
 
                     # save best validation score and iteration number
                     best_validation_loss = this_validation_loss
                     best_iter = iter
-                    best_epoch = epoch
                     # save model parameters
                     best_params = [l.get_weights() for l in layers]
                     try_pickle_dump(best_params, weights_filename)
@@ -177,11 +174,8 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                 learn_rate = l_rate_wrapper.learning_rate.get_value()
                 if learn_rate > min_learning_rate and\
                         (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
-                    print "checking learning rate", learn_rate, min_learning_rate, epoch, best_epoch, best_validation_loss, improvement_check_best_loss
-                    if (best_validation_loss + 0.05) >= improvement_check_best_loss:
-                        l_rate_wrapper.lower_rate_by_factor(0.5)
-                        epochs_check_learn_rate = int(epochs_check_learn_rate * 1.2)
-                    improvement_check_best_loss = best_validation_loss
+                    l_rate_wrapper.lower_rate_by_factor(0.5)
+                    # epochs_check_learn_rate = int(epochs_check_learn_rate * 1.2)
 
             if patience <= iter:
                 logger.info("Ran out of patience")

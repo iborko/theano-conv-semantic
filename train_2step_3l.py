@@ -251,7 +251,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].negative_log_likelihood(y_flat)] +
+         layers[0].bayesian_nll_ds(y_flat, class_freqs)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -269,7 +269,7 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    cost2 = layers[0].negative_log_likelihood(y_flat)
+    cost2 = layers[0].bayesian_nll_ds(y_flat, class_freqs)
     #     + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
 
     # train_model is a function that updates the model parameters

@@ -2,6 +2,7 @@ import numpy as np
 import theano
 import logging
 from theano.ifelse import ifelse
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 log = logging.getLogger(__name__)
 
@@ -11,18 +12,15 @@ class DropoutLayer(object):
         """
         Creates the dropout layer for an artifical neural network.
 
-        :type dropout_p: float
-        :param dropout_p: Probability of retaining a neuron when using
-            dropout. If None, dropout is not used.
-
         :param input: Symbolic Theano variable for data input.
             If None, a matrix variable is created.
 
         :type in_shp: tuple
         :param in_shp: Shape of input tensor
 
-        :type rng: numpy.random.RandomState
-        :param rng: A random number generator used for all randomness.
+        :type dropout_p: float
+        :param dropout_p: Probability of retaining a neuron when using
+            dropout. If None, dropout is not used.
         """
         log.info("Creating dropout layer, drop_p=%r", dropout_p)
 
@@ -34,7 +32,7 @@ class DropoutLayer(object):
         self.training_mode = theano.shared(np.array(1, dtype='int8'))
 
         assert dropout_p > 0. and dropout_p < 1.
-        rand = theano.tensor.shared_randomstreams.RandomStreams()
+        rand = RandomStreams()
 
         #   create different outputs for training and evalu
         output_train = input * rand.binomial(
