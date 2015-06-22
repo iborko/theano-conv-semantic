@@ -116,14 +116,28 @@ class LogisticRegression(object):
         :param alpha: boosting order (default set to 1, 2)
         """
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
-        return -T.mean(T.pow(1 - p_correct_classes, alpha) * T.log(p_correct_classes))
+        return -T.mean(T.pow(1 - p_correct_classes, alpha)
+                       * T.log(p_correct_classes))
 
-    def bayesian_nll_ds(self, y, p_c):
+    def bayesian_nll_ds(self, y, p_c, care_classes=None):
         """
         Bayesian negative log likelihood (uses class apriors to calc loss)
         Class priors calculated per dataset.
+
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for each example the
+                  correct label
+
+        :type p_c: theano.tensor.TensorType
+        :param y: aprior class probabilities in train dataset
+
+        :type care_classes: theano.tensor.TensorType
+        :param care_classes: indices of classes whose gradient we track,
+                             other gradients are set to zero
         """
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        if care_classes is not None:
+            p_correct_classes = p_correct_classes * care_classes[y]
         return -T.mean(T.log(p_correct_classes) / p_c[y])
 
     def bayesian_nll(self, y):

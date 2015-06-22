@@ -170,7 +170,7 @@ def validate(conf, net_weights):
     test_model_trainset = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
@@ -182,7 +182,7 @@ def validate(conf, net_weights):
     test_model_testset = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],

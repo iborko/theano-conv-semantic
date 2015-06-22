@@ -153,7 +153,7 @@ def main(gen_func, n_layers, show=False):
     DATA_TO_USE = 30
     samples = samples[:DATA_TO_USE]
 
-    random.seed(23455)
+    random.seed(23454)
     random.shuffle(samples)
 
     train_samples, test_samples = split_samples(samples, 0.1)

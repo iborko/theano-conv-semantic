@@ -65,3 +65,28 @@ def calc_class_freqs(y):
 
     freqs_shared = theano.shared(freqs, borrow=True)
     return freqs_shared
+
+
+def build_care_classes(n_classes, data_conf):
+    """
+    Builds array of 0 and 1, where 0 marks class we don't care about:
+    like unknown segmentation or added black pixels around image.
+
+    :type n_classes: int
+    :param n_classes: number of classes in dataset
+
+    :type data_conf: dictionary
+    :param data_conf: dicionary of data configurations, has to have a
+    'dont-care-classes' section, where don't care classes are listed
+    """
+    dont_care_classes_str = 'dont-care-classes'
+    assert(type(data_conf) is dict)
+    assert(dont_care_classes_str in data_conf)
+
+    care_vals = numpy.ones((n_classes), dtype='int8')
+    care_vals[data_conf[dont_care_classes_str]] = 0
+    care = theano.shared(care_vals, borrow=True)
+
+    logger.info("Care classes indices\n %s", care.get_value())
+
+    return care

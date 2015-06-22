@@ -61,7 +61,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     """
     assert(type(conf) is dict)
     n_epochs = conf['epochs']
-    if n_epochs <= 0:
+    if n_epochs < 0:
         n_epochs = maxint
 
     # how often to lower learning rate if no improvement
