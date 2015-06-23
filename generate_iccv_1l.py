@@ -141,6 +141,11 @@ def split_samples(samples, classes, test_size=0.1):
     return train_samples, test_samples
 
 
+def write_samples_log(samples, outpath):
+    with open(outpath, 'w') as f:
+        f.writelines("\n".join([s.name for s in samples]))
+
+
 def main(gen_func, n_layers, show=False):
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
@@ -156,8 +161,11 @@ def main(gen_func, n_layers, show=False):
     random.seed(23454)
     random.shuffle(samples)
 
-    train_samples, test_samples = split_samples(samples, 0.1)
+    train_samples, test_samples = split_samples(samples, 0.15)
     del samples
+
+    write_samples_log(train_samples, "samples_train.log")
+    write_samples_log(test_samples, "samples_test.log")
 
     x_train = generate_x(train_samples, n_layers, gen_func)
     x_test = generate_x(test_samples, n_layers, gen_func)
