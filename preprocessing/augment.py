@@ -9,6 +9,7 @@ default_augmentation_params = {
     'translation_range': (-20, 20),
 }
 
+
 def build_augmentation_transform(zoom=1.0, rotation=0, shear=0, translation=(0,0), image_shape=(42, 42)):
 
     tform_augment = skimage.transform.AffineTransform(
@@ -46,9 +47,10 @@ def fast_warp_rgb(img, tf, output_shape=(42, 42), mode='reflect'):
     skimage.transform.warp, for our use case.
     """
     m = tf._matrix
-    img_wf = np.empty((3, output_shape[0], output_shape[1]), dtype='float32')
+    img_wf = np.empty((img.shape[0], output_shape[0], output_shape[1]),
+                      dtype='float32')
 
-    for k in xrange(3):
+    for k in xrange(img.shape[0]):
         img_wf[k, ...] = skimage.transform._warps_cy._warp_fast(
             img[k, ...],
             m,

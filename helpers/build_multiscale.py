@@ -39,6 +39,121 @@ def reduce_img_dim(img_shp, ignore_border=True):
     return tuple(new_shp)
 
 
+def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
+                        activation, bias, rng, layers):
+    """
+    x: symbolic theano variable
+        input data
+    batch_size: int
+        size of minibatch
+    image_size: 2-tuple
+        size of input image
+    nkerns: list of ints
+        kernels dimension (x and y dimension are the same)
+    nfilters: list of ints
+        number of filter banks per layer
+    sparse: boolean
+        is network sparse?
+    activation: theano symbolic expression
+        activation function
+    bias: float
+        bias amount
+    rng: numpy random generator
+        random generator used for generating weights
+    layers: list of layer objects (ConvLayers)
+        list of layers used to build layers of current scale
+    """
+    assert(len(nkerns) == len(nfilters))
+
+    layer0_Y_input = x[:, [0]]  # Y channel
+    layer0_UV_input = x[:, [1, 2]]  # U, V channels
+    layer0_D_input = x[:, [3]]  # depth channel
+
+    # +2 because of two additinal layers (UV, D)
+    ws = [None] * (len(nfilters) + 2)
+    bs = [None] * len(ws)
+    if layers is not None:
+        for i, layer in enumerate(layers[::-1]):
+            ws[i] = layer.W
+            bs[i] = layer.b
+
+    # Construct the first convolutional pooling layer
+    #  layer0 has 10 filter maps for Y channel
+    layer0_Y = ConvPoolLayer(
+        rng,
+        input=layer0_Y_input,
+        image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
+        filter_shape=(10, 1, nfilters[0], nfilters[0]),
+        activation=activation, bias=bias, border_mode='same',
+        ignore_border_pool=False,
+        W=ws[0], b=bs[0],
+    )
+
+    #  layer0 has 6 filter maps for U and V channel
+    layer0_UV = ConvPoolLayer(
+        rng,
+        input=layer0_UV_input,
+        image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
+        filter_shape=(6, 2, nfilters[0], nfilters[0]),
+        activation=activation, bias=bias, border_mode='same',
+        ignore_border_pool=False,
+        W=ws[1], b=bs[1],
+    )
+
+    #  layer0 has 8 filter maps for DEPTH channel
+    layer0_D = ConvPoolLayer(
+        rng,
+        input=layer0_D_input,
+        image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
+        filter_shape=(8, 1, nfilters[0], nfilters[0]),
+        activation=activation, bias=bias, border_mode='same',
+        ignore_border_pool=False,
+        W=ws[2], b=bs[2],
+    )
+
+    # stack outputs from Y, U, V channel layer
+    layer0_output = T.concatenate([layer0_Y.output,
+                                   layer0_UV.output,
+                                   layer0_D.output], axis=1)
+
+    image_shape1 = reduce_img_dim(image_shape, False)
+
+    # Construct the second convolutional pooling layer
+    filters_to_use1 = nkerns[0] // 2 if sparse else nkerns[0]
+    layer1 = ConvPoolLayer(
+        rng,
+        input=layer0_output,
+        image_shape=(batch_size, nkerns[0], image_shape1[0], image_shape1[1]),
+        filter_shape=(nkerns[1], filters_to_use1, nfilters[1], nfilters[1]),
+        activation=activation, bias=bias, border_mode='same',
+        ignore_border_pool=False,
+        W=ws[3], b=bs[3],
+    )
+
+    image_shape2 = reduce_img_dim(image_shape1, False)
+
+    # Construct the third convolutional pooling layer
+    filters_to_use2 = nkerns[1] // 2 if sparse else nkerns[1]
+    layer2 = ConvPoolLayer(
+        rng,
+        input=layer1.output,
+        image_shape=(batch_size, nkerns[1], image_shape2[0], image_shape2[1]),
+        filter_shape=(nkerns[2], filters_to_use2, nfilters[2], nfilters[2]),
+        activation=activation, bias=bias, border_mode='same',
+        poolsize=(1, 1), ignore_border_pool=False,
+        only_conv=True,
+        W=ws[4], b=bs[4],
+    )
+
+    image_shape3 = image_shape2
+    layer2_output = layer2.output
+
+    logger.info("Scale output has size of %s", image_shape3)
+
+    layers = [layer2, layer1, layer0_D, layer0_UV, layer0_Y]
+    return layers, image_shape3, layer2_output
+
+
 def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
                    activation, bias, rng, layers):
     """
@@ -250,6 +365,68 @@ def build_scale_4l(x, batch_size, image_shape, nkerns, nfilters, sparse,
 
     layers = [layer3, layer2, layer1, layer0_UV, layer0_Y]
     return layers, image_shape4, layer3_output
+
+
+def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
+                          nkerns, sparse=False, activation=T.tanh, bias=0.0):
+    """
+    Build model for conv network for segmentation
+
+    x: symbolic theano variable, 4d tensor
+        input data (or symbol representing it)
+    y: symbolic theano variable, imatrix
+        output data (or symbol representing it)
+    batch_size: int
+        size of batch
+    classes: int
+        number of classes
+    image_shape: tuple
+        image dimensions
+    layers: list
+        list of kernel_dimensions
+
+    returns: list
+        list of all layers, first layer is actually the last (log reg)
+    """
+    # net has 3 conv layers
+    assert(len(nkerns) == 3)
+    # this version has to have 16 filters in first layer
+    assert(nkerns[0] == 24)
+
+    # convolution kernel size
+    nfilters = [7, 7, 5]
+
+    logger.info('... building the model')
+
+    rng = numpy.random.RandomState(23455)
+    layers0, img_shp, out0 = build_scale_3l_rgbd(
+        x0, batch_size, image_shape, nkerns, nfilters,
+        sparse, activation, bias, rng, None)
+    image_shape_s2 = div_tuple(image_shape, 2)
+    layers2, _, out2 = build_scale_3l_rgbd(
+        x2, batch_size, image_shape_s2, nkerns, nfilters,
+        sparse, activation, bias, rng, layers0)
+    image_shape_s4 = div_tuple(image_shape_s2, 2)
+    layers4, _, out4 = build_scale_3l_rgbd(
+        x4, batch_size, image_shape_s4, nkerns, nfilters,
+        sparse, activation, bias, rng, layers2)
+
+    scale0_out = out0
+    scale2_out = upsample(out2, 2)
+    scale4_out = upsample(out4, 4)
+
+    conc = T.concatenate([scale0_out, scale2_out, scale4_out], axis=1)
+    layer4_in = conc.dimshuffle(0, 2, 3, 1).\
+        reshape((-1, nkerns[-1] * 3))
+
+    # classify the values of the fully-connected sigmoidal layer
+    layer_last = LogisticRegression(input=layer4_in,
+                                    n_in=nkerns[-1] * 3,  # 3 scales
+                                    n_out=classes)
+
+    # list of all layers
+    layers = [layer_last] + layers0
+    return layers, img_shp, layer4_in
 
 
 def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,

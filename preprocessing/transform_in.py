@@ -10,13 +10,31 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def resize(img, out_shape, inter=1):
+    """
+    Resize image (using OpenCV2)
+
+    img: numpy.array
+        img to resize
+    out_shape: 2-tuple
+        requested size
+    inter: int
+        interpolation: 0-nearest_neighbour, 1-linear, 2-cubic
+    """
+    assert(len(out_shape) == 2)
+    ret_img = cv2.resize(img, (out_shape[1], out_shape[0]),
+                         interpolation=inter)
+    return ret_img
+
+
 def get_laplacian_pyramid_layer(img, n):
     '''Returns the n-th layer of the laplacian pyramid'''
     currImg, i = img, 0
     while i < n:
         down = cv2.pyrDown(currImg)
         up = cv2.pyrUp(down)
-        lap = currImg - up
+        shp = currImg.shape
+        lap = currImg - up[:shp[0], :shp[1]]
         currImg = down
         i += 1
     return lap
@@ -93,6 +111,7 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     #   normalize from 0-255 to 0-1
     for i in xrange(n_layers):
         pyr_levels[i] /= 255.0
+        pyr_levels[i] -= pyr_levels[i].mean()
 
     '''
     #   normalize blocks of every channel
