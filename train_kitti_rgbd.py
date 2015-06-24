@@ -112,7 +112,7 @@ def evaluate_conv(conf, net_weights=None):
     layers, out_shape, conv_out = build_multiscale_rgbd(
         x0, x2, x4, y, batch_size, classes=n_classes,
         image_shape=image_shape,
-        nkerns=[24, 64, 256],
+        nkerns=[24, 96, 384],
         activation=lReLU, bias=0.001,
         sparse=False)
     logger.info("Image out shape is %s", out_shape)

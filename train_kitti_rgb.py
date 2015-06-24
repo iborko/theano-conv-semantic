@@ -315,9 +315,9 @@ def evaluate_conv(conf, net_weights=None):
 if __name__ == '__main__':
     """
     Examples of usage:
-    python train_2step_3l.py network.conf
+    python train_kitti_rgb.py network.conf
 
-    python train_2step_3l.py network.conf network-12-34.bin
+    python train_kitti_rgb.py network.conf network-12-34.bin
         trains network starting with weights in network-*.bin file
     """
     logging.basicConfig(level=logging.INFO)
