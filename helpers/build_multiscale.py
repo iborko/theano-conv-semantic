@@ -105,7 +105,8 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
         rng,
         input=layer0_D_input,
         image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
-        filter_shape=(8, 1, nfilters[0], nfilters[0]),
+        # filter_shape=(8, 1, nfilters[0], nfilters[0]),
+        filter_shape=(8, 1, 5, 5),
         activation=activation, bias=bias, border_mode='same',
         ignore_border_pool=False,
         W=ws[2], b=bs[2],
@@ -394,7 +395,7 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
     assert(nkerns[0] == 24)
 
     # convolution kernel size
-    nfilters = [7, 7, 5]
+    nfilters = [7, 7, 7]
 
     logger.info('... building the model')
 
