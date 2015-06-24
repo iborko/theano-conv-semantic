@@ -307,7 +307,7 @@ def validate(conf, net_weights):
     logger.info("---> Test set - segmentation")
     print_stats(validation, y_test, layers[0].n_classes,
                 conf['data']['dont-care-classes'], 'samples_test.log',
-                postproc=oversegment, show=True)
+                postproc=oversegment, show=False)
 
 
 
