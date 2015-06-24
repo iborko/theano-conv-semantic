@@ -165,7 +165,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model = theano.function(
         [index],
         [log_reg_layer.errors(y_flat),
-         log_reg_layer.bayesian_nll_ds(y_flat, class_freqs)] +
+         log_reg_layer.negative_log_likelihood(y_flat)] +
         list(log_reg_layer.accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -187,8 +187,8 @@ def evaluate_conv(conf, net_weights=None):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    # cost = log_reg_layer.negative_log_likelihood(y_flat)\
-    cost = log_reg_layer.bayesian_nll_ds(y_flat, class_freqs)\
+    # cost = log_reg_layer.bayesian_nll_ds(y_flat, class_freqs)\
+    cost = log_reg_layer.negative_log_likelihood(y_flat)\
         + 10**-5 * T.sum([T.sum(w ** 2) for w in weights])
 
     # train_model is a function that updates the model parameters
@@ -253,7 +253,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].bayesian_nll_ds(y_flat, class_freqs)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -271,8 +271,8 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    # cost2 = layers[0].negative_log_likelihood(y_flat)
-    cost2 = layers[0].bayesian_nll_ds(y_flat, class_freqs)
+    # cost2 = layers[0].bayesian_nll_ds(y_flat, class_freqs)
+    cost2 = layers[0].negative_log_likelihood(y_flat)
     #     + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
 
     #   train_model is a function that updates the model parameters
