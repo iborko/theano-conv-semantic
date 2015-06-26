@@ -137,7 +137,9 @@ class LogisticRegression(object):
         """
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
         if care_classes is not None:
-            p_correct_classes = p_correct_classes * care_classes[y]
+            p_correct_classes = T.set_subtensor(
+                p_correct_classes[T.eq(care_classes[y], 0).nonzero()],
+                T.cast(1.0, 'float32'))
         return -T.mean(T.log(p_correct_classes) / p_c[y])
 
     def bayesian_nll(self, y):

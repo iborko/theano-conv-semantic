@@ -89,7 +89,7 @@ def print_stats(results, y, n_classes, dont_care_classes,
         img_old = img_up
         assert(img_up.shape[0] == SHAPE[0])
 
-        if dataset_type is 'test':
+        if dataset_type == 'test':
             images_path = IMGS_TEST
         else:
             images_path = IMGS_TRAIN
