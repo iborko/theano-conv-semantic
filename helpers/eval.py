@@ -93,8 +93,9 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
 
     best_validation_loss = numpy.inf
     best_iter = 0
-    best_epoch = 0
+    best_epoch = 0  # best epoch for train cost
     best_params = []
+    best_train_cost = 0.0
 
     epoch = 0
     done_looping = False
@@ -156,7 +157,6 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                                        10 * n_train_batches + int(iter * patience_increase + 1))
                         logger.info("Patience increased to %d epochs",
                                     int(patience / n_train_batches))
-                        best_epoch = epoch
 
                     # save best validation score and iteration number
                     best_validation_loss = this_validation_loss
@@ -170,19 +170,22 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                                 (epoch, minibatch_index + 1, n_train_batches,
                                  this_validation_loss * 100.))
 
-                # lower learning rate if no improvement
-                learn_rate = l_rate_wrapper.learning_rate.get_value()
-                if learn_rate > min_learning_rate and\
-                        (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
-                    l_rate_wrapper.lower_rate_by_factor(0.5)
-                    # epochs_check_learn_rate = int(epochs_check_learn_rate * 1.2)
-
             if patience <= iter:
                 logger.info("Ran out of patience")
                 done_looping = True
                 break
 
-        logger.info('Average training cost %f', numpy.mean(training_costs))
+        train_cost = numpy.mean(training_costs)
+        logger.info('Average training cost %f', train_cost)
+        if train_cost < best_train_cost * improvement_threshold:
+            best_train_cost = train_cost
+            best_epoch = epoch
+
+        # lower learning rate if no improvement
+        learn_rate = l_rate_wrapper.learning_rate.get_value()
+        if learn_rate > min_learning_rate and\
+                (epoch - best_epoch + 1) % epochs_check_learn_rate == 0:
+            l_rate_wrapper.lower_rate_by_factor(0.5)
 
     logger.info('Optimization complete.')
 
