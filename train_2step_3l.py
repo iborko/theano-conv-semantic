@@ -260,7 +260,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         build_loss(layers[0], conf['net']['loss'],
+         build_loss(layers[0], conf['network']['loss'],
                     y_flat, class_freqs, care_classes)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={

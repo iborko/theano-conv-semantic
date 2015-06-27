@@ -153,7 +153,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                     if this_validation_loss < best_validation_loss *  \
                             improvement_threshold:
                         patience = max(patience,
-                                       10 * n_train_batches + int(iter * patience_increase))
+                                       10 * n_train_batches + int(iter * patience_increase + 1))
                         logger.info("Patience increased to %d epochs",
                                     int(patience / n_train_batches))
                         best_epoch = epoch
