@@ -1,3 +1,4 @@
+import time
 import pylab
 import cv2
 from superpixel import segment
@@ -11,7 +12,10 @@ pylab.subplot(2, 1, 1)
 pylab.axis('off')
 pylab.imshow(img)
 
-marks = segment(img, 0.5, 250, 40)
+start = time.clock()
+marks = segment(img, 0.5, 250, 200)
+stop = time.clock()
+print "Time", stop-start, "sec"
 print "Marked image shape", marks.shape
 # print marks[100:140, 100:140]
 
