@@ -24,6 +24,7 @@ from scipy.ndimage import zoom
 from postprocessing.superpixel import segment
 import matplotlib.pyplot as plt
 import matplotlib.colors
+from sklearn.grid_search import ParameterGrid
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,23 @@ def set_layers_training_mode(layers, mode):
             # logger.info('Found layer with trainig mode %d, setting to %d',
             #              i, mode)
             layer.training_mode.set_value(mode)
+
+
+def find_best_superpixel_params(func):
+    params_grid = {
+        'sigma': [0.3, 0.5, 0.7],
+        'k': [100, 200, 300, 400, 500],
+        'min_size': [20, 50, 70, 100, 150, 200, 300]
+    }
+    best_params = None
+    best_result = 0.0
+    for params in ParameterGrid(params_grid):
+        result = func(params)
+        if result > best_result:
+            best_result = result
+            best_params = params
+
+    return best_params
 
 
 def oversegment(orig_img, marked, sigma, k, min_size):
@@ -72,8 +90,9 @@ def oversegment(orig_img, marked, sigma, k, min_size):
     return new_mark
 
 
-def print_stats(results, y, n_classes, dont_care_classes,
-                fnames_path, dataset_type, show=False, postproc=None):
+def get_stats(results, y, n_classes, dont_care_classes,
+              fnames_path, dataset_type, show=False, log=True,
+              postproc=None, postproc_params=None):
     assert(len(results) == y.shape[0])
     fnames = []
     with open(fnames_path, 'r') as f:
@@ -98,7 +117,7 @@ def print_stats(results, y, n_classes, dont_care_classes,
         orig_img = resize(orig_img, SHAPE)
         # apply postprocessing
         if postproc is not None:
-            img_up = postproc(orig_img, img_up, 0.5, 200, 100)
+            img_up = postproc(orig_img, img_up, **postproc_params)
 
         if show and ind < IMGS_TO_SHOW:
             bounds = np.linspace(0, 30, 31)
@@ -131,13 +150,15 @@ def print_stats(results, y, n_classes, dont_care_classes,
     care_total = total * care_classes
     class_accuracy = calc_class_accuracy(care_correct, care_total)
 
-    logger.info('total pixel accuracy %f %%',
-                (np.sum(care_correct, dtype='float32') /
-                 np.sum(care_total)) * 100.)
-    logger.info('mean class accuracy: %f %%',
-                class_accuracy * 100.)
-    logger.info('per class accuracies: %s',
-                correct.astype('float32') / total)
+    total_acc = (np.sum(care_correct, dtype='float32') /
+                 np.sum(care_total)) * 100.
+    if log:
+        logger.info('total pixel accuracy %f %%', total_acc)
+        logger.info('mean class accuracy: %f %%',
+                    class_accuracy * 100.)
+        logger.info('per class accuracies: %s',
+                    correct.astype('float32') / total)
+    return total_acc
 
 
 def validate(conf, net_weights):
@@ -258,14 +279,28 @@ def validate(conf, net_weights):
         'samples_' + conf['run-dataset'] + '.log'
     logger.info("Validated %d images in %.2f seconds",
                 n_train_batches, end_time - start_time)
-    print_stats(validation, y_train, layers[0].n_classes,
-                conf['data']['dont-care-classes'], logfiles_path,
-                conf['run-dataset'])
+    get_stats(validation, y_train, layers[0].n_classes,
+              conf['data']['dont-care-classes'], logfiles_path,
+              conf['run-dataset'])
 
     logger.info("---> Results - superpixels")
-    print_stats(validation, y_train, layers[0].n_classes,
-                conf['data']['dont-care-classes'], logfiles_path,
-                conf['run-dataset'], postproc=oversegment, show=False)
+    stats_func = lambda p: get_stats(
+        validation, y_train, layers[0].n_classes,
+        conf['data']['dont-care-classes'], logfiles_path,
+        conf['run-dataset'], postproc=oversegment, postproc_params=p,
+        show=False, log=False)
+    start_time = time.clock()
+    best_params = find_best_superpixel_params(stats_func)
+    end_time = time.clock()
+    logger.info("Done in %.2f seconds", end_time - start_time)
+    logger.info("Best params are %s", best_params)
+
+    #   run one more time with params, log output this time
+    get_stats(
+        validation, y_train, layers[0].n_classes,
+        conf['data']['dont-care-classes'], logfiles_path,
+        conf['run-dataset'], postproc=oversegment, postproc_params=best_params,
+        show=False)
 
 
 if __name__ == '__main__':
