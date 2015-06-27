@@ -12,7 +12,8 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_multiscale import build_multiscale, extend_net_w1l_drop
+from helpers.build_multiscale import get_net_builder
+from helpers.build_multiscale import extend_net_w1l_drop
 # from preprocessing.transform_out import resize_marked_image
 from preprocessing.transform_in import resize
 from preprocessing.file_helper import open_image
@@ -47,8 +48,8 @@ def set_layers_training_mode(layers, mode):
             layer.training_mode.set_value(mode)
 
 
-def oversegment(orig_img, marked):
-    segmented = segment(orig_img, 0.5, 250, 40)
+def oversegment(orig_img, marked, sigma, k, min_size):
+    segmented = segment(orig_img, sigma, k, min_size)
     # crop to real size
     segmented = segmented[:SHAPE[0], :SHAPE[1]]
     """
@@ -97,7 +98,7 @@ def print_stats(results, y, n_classes, dont_care_classes,
         orig_img = resize(orig_img, SHAPE)
         # apply postprocessing
         if postproc is not None:
-            img_up = postproc(orig_img, img_up)
+            img_up = postproc(orig_img, img_up, 0.5, 200, 100)
 
         if show and ind < IMGS_TO_SHOW:
             bounds = np.linspace(0, 30, 31)
@@ -167,12 +168,12 @@ def validate(conf, net_weights):
     image_shape = (x_train.shape[-2], x_train.shape[-1])
     logger.info("Image shape is %s", image_shape)
 
-    logger.info('Train set has %d images' %
+    logger.info('Dataset has %d images' %
                 x_train.shape[0])
-    logger.info('Input train set has shape of %s ',
+    logger.info('Input data has shape of %s ',
                 x_train.shape)
 
-    # compute number of minibatches for training, validation and validing
+    # compute number of minibatches
     n_train_batches = x_train.shape[0] // batch_size
 
     logger.info("Number of train batches %d" % n_train_batches)
@@ -191,16 +192,15 @@ def validate(conf, net_weights):
     y = T.imatrix('y')
 
     # create all layers
-    layers, out_shape, conv_out = build_multiscale(
+    builder_name = conf['network']['builder-name']
+    layers, out_shape, conv_out = get_net_builder(builder_name)(
         x0, x2, x4, y, batch_size, classes=n_classes,
         image_shape=image_shape,
-        nkerns=[16, 64, 256],
+        nkerns=conf['network']['layers'][:3],
+        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001,
         sparse=False)
     logger.info("Image out shape is %s", out_shape)
-
-    # last layer, log reg
-    # y_flat = y.flatten(1)
 
     y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
 
@@ -215,24 +215,15 @@ def validate(conf, net_weights):
     x2_train_shared = theano.shared(x_train_allscales[1], borrow=True)
     x4_train_shared = theano.shared(x_train_allscales[2], borrow=True)
 
-    # When storing data on the GPU it has to be stored as floats
-    # therefore we will store the labels as ``floatX`` as well
-    # (``shared_y`` does exactly that). But during our computations
-    # we need them as ints (we use labels as index, and if they are
-    # floats it doesn't make sense) therefore instead of returning
-    # ``shared_y`` we will have to cast it to int. This little hack
-    # lets ous get around this issue
-    # y_train_shared_i32 = T.cast(y_train_shared, 'int32')
-    # y_test_shared_i32 = T.cast(y_test_shared, 'int32')
-
     ###############
     # BUILD MODEL #
     ###############
     logger.info("... building model")
 
     layers, new_layers = extend_net_w1l_drop(
-        conv_out, layers, n_classes,
-        nkerns=[1000],
+        conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
+        nkerns=conf['network']['layers'][-1:],
+        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001)
 
     test_model = theano.function(
@@ -242,7 +233,6 @@ def validate(conf, net_weights):
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
             x4: x4_train_shared[index * batch_size: (index + 1) * batch_size]
-            # y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
 
@@ -272,7 +262,7 @@ def validate(conf, net_weights):
                 conf['data']['dont-care-classes'], logfiles_path,
                 conf['run-dataset'])
 
-    logger.info("---> Results- oversegmentation")
+    logger.info("---> Results - superpixels")
     print_stats(validation, y_train, layers[0].n_classes,
                 conf['data']['dont-care-classes'], logfiles_path,
                 conf['run-dataset'], postproc=oversegment, show=False)

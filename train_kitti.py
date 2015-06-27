@@ -137,6 +137,7 @@ def evaluate_conv(conf, net_weights=None):
         x0, x2, x4, y, batch_size, classes=n_classes,
         image_shape=image_shape,
         nkerns=conf['network']['layers'][:3],
+        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001,
         sparse=False)
     logger.info("Image out shape is %s", out_shape)
@@ -271,7 +272,7 @@ def evaluate_conv(conf, net_weights=None):
     logger.info('Starting second step, with Dropout hidden layers')
     layers, new_layers = net_builders.extend_net_w1l_drop(
         conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
-        nkerns=conf['network']['layers'][-1],
+        nkerns=conf['network']['layers'][-1:],
         activation=lReLU, bias=0.001)
 
     # create a function to compute the mistakes that are made by the model

@@ -10,6 +10,22 @@ import theano
 import theano.tensor as T
 
 
+def build_loss(log_reg_layer, func_name, *loss_args):
+    """
+    Build loss function
+    log_reg_layer: helpers.layers.log_reg.LogisticRegression object
+        classification layer of a net
+    func_name: string
+        loss function name
+    """
+    assert(type(log_reg_layer) is LogisticRegression)
+
+    loss_function = LogisticRegression.__dict__[func_name]
+    n_args = loss_function.func_code.co_argcount - 1  # minus self
+    selected_args = loss_args[:n_args]
+    return loss_function(log_reg_layer, *selected_args)
+
+
 class LogisticRegression(object):
     """Multi-class Logistic Regression Class
 

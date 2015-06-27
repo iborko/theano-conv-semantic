@@ -12,8 +12,11 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_multiscale import build_multiscale, extend_net_w1l, extend_net_w1l_drop
+from helpers.build_multiscale import get_net_builder
+from helpers.build_multiscale import extend_net_w1l_drop
 # from preprocessing.transform_out import resize_marked_image
+from preprocessing.transform_in import resize
+from preprocessing.file_helper import open_image
 from util import try_pickle_load
 from helpers.load_conf import load_config
 from helpers.eval import calc_class_accuracy
@@ -29,7 +32,9 @@ ReLU = lambda x: T.maximum(x, 0)
 lReLU = lambda x: T.maximum(x, 1./5*x)  # leaky ReLU
 
 IMGS = "./data/iccv09Data/images/"
-SHAPE = (60, 80)
+SHAPE = (240, 320)
+NET_OUT_SHAPE = (60, 80)
+IMGS_TO_SHOW = 8
 
 
 def set_layers_training_mode(layers, mode):
@@ -48,10 +53,10 @@ def load_orig_img(name):
     return img
 
 
-def oversegment(orig_img, marked):
-    segmented = segment(orig_img, 0.5, 250, 40)
+def oversegment(orig_img, marked, sigma, k, min_size):
+    segmented = segment(orig_img, sigma, k, min_size)
     # crop to real size
-    segmented = segmented[:240, :320]
+    segmented = segmented[:SHAPE[0], :SHAPE[1]]
     """
     # DEBUG
     plt.subplot(2, 1, 1)
@@ -73,7 +78,7 @@ def oversegment(orig_img, marked):
 
 
 def print_stats(results, y, n_classes, dont_care_classes,
-                fnames_path, show=False, postproc=None):
+                fnames_path, dataset_type, show=False, postproc=None):
     assert(len(results) == y.shape[0])
     fnames = []
     with open(fnames_path, 'r') as f:
@@ -88,14 +93,16 @@ def print_stats(results, y, n_classes, dont_care_classes,
         curr_y = y[ind]
         img_up = zoom(img, 4, order=0)
         img_old = img_up
-        assert(img_up.shape[0] == 240)
+        assert(img_up.shape[0] == SHAPE[0])
 
-        orig_img = load_orig_img(fnames[ind])
+        images_path = IMGS
+        orig_img = open_image(images_path, fnames[ind] + '.png')
+        orig_img = resize(orig_img, SHAPE)
         # apply postprocessing
         if postproc is not None:
-            img_up = postproc(orig_img, img_up)
+            img_up = postproc(orig_img, img_up, 0.5, 200, 100)
 
-        if show:
+        if show and ind < IMGS_TO_SHOW:
             bounds = np.linspace(0, 30, 31)
             # cmap = plt.get_cmap('Paired')
             cmap = plt.get_cmap('gist_ncar')
@@ -146,37 +153,32 @@ def validate(conf, net_weights):
     logger.info('Batch size %d' % (batch_size))
 
     try:
-        x_train_allscales = try_pickle_load(path + 'x_train.bin')
+        x_train_allscales = try_pickle_load(
+            path + 'x_' + conf['run-dataset'] + '.bin')
         x_train = x_train_allscales[0]  # first scale
-        y_train = try_pickle_load(path + 'y_train.bin')
-        x_test_allscales = try_pickle_load(path + 'x_test.bin')
-        x_test = x_test_allscales[0]
-        y_test = try_pickle_load(path + 'y_test.bin')
+        y_train = try_pickle_load(
+            path + 'y_' + conf['run-dataset'] + '.bin')
     except IOError:
         logger.error("Unable to load Theano dataset from %s", path)
         exit(1)
 
-    n_classes = int(max(y_train.max(), y_test.max()) + 1)
+    y_valid = try_pickle_load(path + 'y_validation.bin')
+    print path + 'y_validation.bin'
+    n_classes = int(max(y_train.max(), y_valid.max()) + 1)
     logger.info("Dataset has %d classes", n_classes)
 
     image_shape = (x_train.shape[-2], x_train.shape[-1])
     logger.info("Image shape is %s", image_shape)
 
-    logger.info('Train set has %d images' %
+    logger.info('Dataset has %d images' %
                 x_train.shape[0])
-    logger.info('Input train set has shape of %s ',
+    logger.info('Input data has shape of %s ',
                 x_train.shape)
-    logger.info('Test set has %d images' %
-                x_test.shape[0])
-    logger.info('Input test set has shape of %s ',
-                x_test.shape)
 
-    # compute number of minibatches for training, validation and testing
+    # compute number of minibatches
     n_train_batches = x_train.shape[0] // batch_size
-    n_test_batches = x_test.shape[0] // batch_size
 
     logger.info("Number of train batches %d" % n_train_batches)
-    logger.info("Number of test batches %d" % n_test_batches)
 
     logger.info("... building network")
 
@@ -192,29 +194,22 @@ def validate(conf, net_weights):
     y = T.imatrix('y')
 
     # create all layers
-    layers, out_shape, conv_out = build_multiscale(
+    builder_name = conf['network']['builder-name']
+    layers, out_shape, conv_out = get_net_builder(builder_name)(
         x0, x2, x4, y, batch_size, classes=n_classes,
         image_shape=image_shape,
-        nkerns=[16, 64, 256],
+        nkerns=conf['network']['layers'][:3],
+        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001,
         sparse=False)
     logger.info("Image out shape is %s", out_shape)
 
-    # last layer, log reg
-    # y_flat = y.flatten(1)
-
     y_train_shape = (y_train.shape[0], out_shape[0], out_shape[1])
-    y_test_shape = (y_test.shape[0], out_shape[0], out_shape[1])
 
     # resize marked images to out_size of the network
     y_train_downscaled = np.empty(y_train_shape)
     # for i in xrange(y_train.shape[0]):
     #     y_train_downscaled[i] = resize_marked_image(y_train[i], out_shape)
-
-    # resize marked images to out_size of the network
-    y_test_downscaled = np.empty(y_test_shape)
-    # for i in xrange(y_test.shape[0]):
-    #     y_test_downscaled[i] = resize_marked_image(y_test[i], out_shape)
 
     x_train_shared, y_train_shared = \
         shared_dataset((x_train,
@@ -222,50 +217,24 @@ def validate(conf, net_weights):
     x2_train_shared = theano.shared(x_train_allscales[1], borrow=True)
     x4_train_shared = theano.shared(x_train_allscales[2], borrow=True)
 
-    x_test_shared, y_test_shared = \
-        shared_dataset((x_test,
-                        y_test_downscaled))
-    x2_test_shared = theano.shared(x_test_allscales[1], borrow=True)
-    x4_test_shared = theano.shared(x_test_allscales[2], borrow=True)
-
-    # When storing data on the GPU it has to be stored as floats
-    # therefore we will store the labels as ``floatX`` as well
-    # (``shared_y`` does exactly that). But during our computations
-    # we need them as ints (we use labels as index, and if they are
-    # floats it doesn't make sense) therefore instead of returning
-    # ``shared_y`` we will have to cast it to int. This little hack
-    # lets ous get around this issue
-    # y_train_shared_i32 = T.cast(y_train_shared, 'int32')
-    # y_test_shared_i32 = T.cast(y_test_shared, 'int32')
-
     ###############
     # BUILD MODEL #
     ###############
     logger.info("... building model")
 
     layers, new_layers = extend_net_w1l_drop(
-        conv_out, layers, n_classes,
-        nkerns=[1000],
+        conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
+        nkerns=conf['network']['layers'][-1:],
+        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001)
 
-    test_model_trainset = theano.function(
+    test_model = theano.function(
         [index],
         [layers[0].y_pred],
         givens={
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
             x2: x2_train_shared[index * batch_size: (index + 1) * batch_size],
             x4: x4_train_shared[index * batch_size: (index + 1) * batch_size]
-            # y: y_train_shared_i32[index * batch_size: (index + 1) * batch_size]
-        }
-    )
-    test_model_testset = theano.function(
-        [index],
-        [layers[0].y_pred],
-        givens={
-            x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
-            x2: x2_test_shared[index * batch_size: (index + 1) * batch_size],
-            x4: x4_test_shared[index * batch_size: (index + 1) * batch_size]
-            # y: y_test_shared_i32[index * batch_size: (index + 1) * batch_size]
         }
     )
 
@@ -282,47 +251,41 @@ def validate(conf, net_weights):
 
     set_layers_training_mode(layers, 0)
 
-    '''
-    logger.info("---> Train set")
+    logger.info("---> Results - no postprocessing")
     start_time = time.clock()
-    validation = [test_model_trainset(i)[0].reshape(SHAPE)
+    validation = [test_model(i)[0].reshape(NET_OUT_SHAPE)
                   for i in xrange(n_train_batches)]
     end_time = time.clock()
+    logfiles_path = conf['data']['location'] +\
+        'samples_' + conf['run-dataset'] + '.log'
     logger.info("Validated %d images in %.2f seconds",
                 n_train_batches, end_time - start_time)
     print_stats(validation, y_train, layers[0].n_classes,
-                conf['data']['dont-care-classes'], 'samples_train.log')
-    '''
+                conf['data']['dont-care-classes'], logfiles_path,
+                conf['run-dataset'])
 
-    logger.info("---> Test set - no postprocessing")
-    start_time = time.clock()
-    validation = [test_model_testset(i)[0].reshape(SHAPE)
-                  for i in xrange(n_test_batches)]
-    end_time = time.clock()
-    logger.info("Validated %d images in %.2f seconds",
-                n_train_batches, end_time - start_time)
-    print_stats(validation, y_test, layers[0].n_classes,
-                conf['data']['dont-care-classes'], 'samples_test.log')
-
-    logger.info("---> Test set - segmentation")
-    print_stats(validation, y_test, layers[0].n_classes,
-                conf['data']['dont-care-classes'], 'samples_test.log',
-                postproc=oversegment, show=False)
-
+    logger.info("---> Results - superpixels")
+    print_stats(validation, y_train, layers[0].n_classes,
+                conf['data']['dont-care-classes'], logfiles_path,
+                conf['run-dataset'], postproc=oversegment, show=False)
 
 
 if __name__ == '__main__':
     """
     Examples of usage:
-    python validate.py network.conf network-12-34.bin
+    python validate.py network.conf network-12-34.bin [train/validation/test]
         validates network
     """
     logging.basicConfig(level=logging.INFO)
 
     argc = len(sys.argv)
-    if argc == 3:
+    if argc == 4:
         net_config_path = sys.argv[1]
         params = try_pickle_load(sys.argv[2])
+        dataset = sys.argv[3]
+        if dataset not in ['train', 'validation', 'test']:
+            print "Wrong dataset type: train/validation/test"
+            exit(1)
         if params is None:
             exit(1)
     else:
@@ -332,6 +295,8 @@ if __name__ == '__main__':
     conf = load_config(net_config_path)
     if conf is None:
         exit(1)
+
+    conf['run-dataset'] = dataset
 
     #   run evaluation
     validate(conf, params)

@@ -16,8 +16,9 @@ import theano.tensor as T
 from helpers.data_helper import shared_dataset
 from helpers.data_helper import build_care_classes
 from helpers.data_helper import calc_class_freqs
-import helpers.build_multiscale as net_builders
-from helpers.layers.log_reg import LogisticRegression
+from helpers.build_multiscale import get_net_builder
+from helpers.build_multiscale import extend_net_w1l_drop
+from helpers.layers.log_reg import build_loss
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
@@ -45,28 +46,6 @@ def build_weight_updates(configuration, cost, params):
     p['cost'] = cost
     p['params'] = params
     return update_modes[configuration['optimization']](**p)
-
-
-def get_net_builder(name):
-    """
-    name: string
-        net builder name (function that builds theano net)
-    """
-    return net_builders.__dict__[name]
-
-
-def build_loss(log_reg_layer, func_name, *loss_args):
-    """
-    Build loss function
-    log_reg_layer: helpers.layers.log_reg.LogisticRegression object
-        classification layer of a net
-    func_name: string
-        loss function name
-    """
-    loss_function = LogisticRegression.__dict__[func_name]
-    n_args = loss_function.func_code.co_argcount - 1  # minus self
-    selected_args = loss_args[:n_args]
-    return loss_function(log_reg_layer, *selected_args)
 
 
 def evaluate_conv(conf, net_weights=None):
@@ -271,9 +250,9 @@ def evaluate_conv(conf, net_weights=None):
         layer.set_weights(net_weight)
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = net_builders.extend_net_w1l_drop(
+    layers, new_layers = extend_net_w1l_drop(
         conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
-        nkerns=conf['network']['layers'][-1],
+        nkerns=conf['network']['layers'][-1:],
         seed=conf['network']['seed'],
         activation=lReLU, bias=0.001)
 

@@ -12,6 +12,16 @@ from helpers.layers.dropout import DropoutLayer
 logger = logging.getLogger(__name__)
 
 
+def get_net_builder(name):
+    """
+    Return builder function by name
+
+    name: string
+        net builder name (function that builds theano net)
+    """
+    return globals()[name]
+
+
 def upsample(x, factor):
     """
     Upsamples last two dimensions of symbolic theano tensor.
