@@ -166,7 +166,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
                     try_pickle_dump(best_params, weights_filename)
 
                     logger.info(('     epoch %i, minibatch %i/%i,'
-                                 'test error of best model %f %%') %
+                                 'validation error of best model %f %%') %
                                 (epoch, minibatch_index + 1, n_train_batches,
                                  this_validation_loss * 100.))
 

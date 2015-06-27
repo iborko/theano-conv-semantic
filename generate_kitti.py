@@ -21,8 +21,6 @@ from util import try_pickle_dump
 
 logger = logging.getLogger(__name__)
 
-DATASET_PATH = './data/kitti/'
-OUT_PATH = './data/kitti/theano_datasets/'
 # requested_shape = (188, 620)  # original shape
 requested_shape = (192, 608)
 

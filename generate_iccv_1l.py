@@ -9,18 +9,18 @@ import logging
 import random
 import sys
 import pylab
+import os
 import multiprocessing as mp
 
 # from preprocessing.transform_in import yuv
 from preprocessing.transform_in import rgb_mean
 from preprocessing.transform_out import process_iccv
 from dataset.loader_iccv import load_dataset
+from helpers.load_conf import load_config
 from util import try_pickle_dump
 
 logger = logging.getLogger(__name__)
 
-DATASET_PATH = './data/iccv09Data/'
-OUT_PATH = './data/iccv09Data/theano_datasets/'
 requested_shape = (240, 320)
 
 
@@ -119,7 +119,7 @@ def generate_targets(samples):
     return y
 
 
-def split_samples(samples, classes, test_size=0.1):
+def split_samples(samples, test_size):
     n = len(samples)
     n_test = int(test_size * n)
     n_train = n - n_test
@@ -146,43 +146,75 @@ def write_samples_log(samples, outpath):
         f.writelines("\n".join([s.name for s in samples]))
 
 
-def main(gen_func, n_layers, show=False):
+def main(conf, gen_func, n_layers, show=False):
+    """
+    conf: dictionary
+        configuration dictionary, from json file
+    gen_func: function
+        function used for generating inputs to network
+    n_layers: int
+        number of layers of laplacian pyramid used as input
+    show: bool
+        if true, few parsed images will be shown as a result
+    """
     logger.info("... loading data")
     logger.debug("Theano.config.floatX is %s" % theano.config.floatX)
 
     #   samples is list of Sample objects
-    samples = load_dataset(DATASET_PATH)
+    dataset_path = conf['training']['dataset-folder']
+    samples = load_dataset(dataset_path)
     samples = list(samples)
 
-    #   use only subset of data TODO remove this
-    # DATA_TO_USE = 30
-    # samples = samples[:DATA_TO_USE]
+    if 'data-subset' in conf['training']:
+        #   use only subset of data
+        data_to_use = conf['training']['data-subset']
+        logger.info("Using only subset of %d samples", data_to_use)
+        samples = samples[:data_to_use]
 
-    random.seed(23454)
+    random.seed(conf['training']['shuffle-seed'])
     random.shuffle(samples)
 
-    train_samples, test_samples = split_samples(samples, 0.15)
+    out_folder = conf['training']['out-folder']
+
+    #   if test data defined
+    if 'test-percent' in conf['training']:
+        logger.info("Found test configuration, generating test data")
+        test_size = float(conf['training']['test-percent']) / 100.0
+        samples, test_samples = split_samples(samples, test_size)
+
+        write_samples_log(test_samples,
+                          os.path.join(out_folder, "samples_test.log"))
+        x_test = generate_x(test_samples, n_layers, gen_func)
+        y_test = generate_targets(test_samples)
+
+        try_pickle_dump(x_test, os.path.join(out_folder, "x_test.bin"))
+        try_pickle_dump(y_test, os.path.join(out_folder, "y_test.bin"))
+    else:
+        logger.info("No test set configuration present")
+
+    validation_size = float(conf['training']['validation-percent']) / 100.0
+    train_samples, validation_samples = split_samples(samples, validation_size)
     del samples
 
-    write_samples_log(train_samples, "samples_train.log")
-    write_samples_log(test_samples, "samples_test.log")
+    write_samples_log(train_samples,
+                      os.path.join(out_folder, "samples_train.log"))
+    write_samples_log(validation_samples,
+                      os.path.join(out_folder, "samples_validation.log"))
 
     x_train = generate_x(train_samples, n_layers, gen_func)
-    x_test = generate_x(test_samples, n_layers, gen_func)
+    x_validation = generate_x(validation_samples, n_layers, gen_func)
     y_train = generate_targets(train_samples)
-    y_test = generate_targets(test_samples)
+    y_validation = generate_targets(validation_samples)
     del train_samples
-    del test_samples
+    del validation_samples
 
-    try_pickle_dump(x_train, OUT_PATH + "x_train.bin")
-    try_pickle_dump(x_test, OUT_PATH + "x_test.bin")
-    try_pickle_dump(y_train, OUT_PATH + "y_train.bin")
-    try_pickle_dump(y_test, OUT_PATH + "y_test.bin")
-
-    # print x_train[0][0, 0, 80:90, 80:90]
-    # print x_test[0][0, 0, 80:90, 80:90]
+    try_pickle_dump(x_train, os.path.join(out_folder, "x_train.bin"))
+    try_pickle_dump(x_validation, os.path.join(out_folder, "x_validation.bin"))
+    try_pickle_dump(y_train, os.path.join(out_folder, "y_train.bin"))
+    try_pickle_dump(y_validation, os.path.join(out_folder, "y_validation.bin"))
 
     if show:
+        #   show few parsed samples from train set
         n_imgs = 5
         for j in xrange(n_imgs):
             pylab.subplot(2, n_imgs, 0 * n_imgs + j + 1)
@@ -204,10 +236,21 @@ if __name__ == "__main__":
 
     show = False
     argc = len(sys.argv)
-    if argc > 1 and sys.argv[1] != "show":
-        print "Wrong arguments"
+    if argc == 2:
+        conf_path = sys.argv[1]
+    elif argc == 3:
+        conf_path = sys.argv[1]
+        if sys.argv[2] == "show":
+            show = True
+        else:
+            print "Wrong arguments"
+            exit(1)
+    else:
+        print "Too few arguments"
         exit(1)
-    if argc > 1 and sys.argv[1] == "show":
-        show = True
 
-    main(gen_layers_for_image, n_layers=1, show=show)
+    conf = load_config(conf_path)
+    if conf is None:
+        exit(1)
+
+    main(conf, gen_layers_for_image, n_layers=1, show=show)

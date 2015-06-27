@@ -369,7 +369,8 @@ def build_scale_4l(x, batch_size, image_shape, nkerns, nfilters, sparse,
 
 
 def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
-                          nkerns, sparse=False, activation=T.tanh, bias=0.0):
+                          nkerns, seed, sparse=False,
+                          activation=T.tanh, bias=0.0):
     """
     Build model for conv network for segmentation
 
@@ -383,12 +384,16 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
         number of classes
     image_shape: tuple
         image dimensions
-    layers: list
+    nkerns: list of ints
         list of kernel_dimensions
+    seed: int
+        seed for random generator
 
     returns: list
         list of all layers, first layer is actually the last (log reg)
     """
+    assert(type(seed) is int)
+
     # net has 3 conv layers
     assert(len(nkerns) == 3)
     # this version has to have 16 filters in first layer
@@ -399,7 +404,7 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
 
     logger.info('... building the model')
 
-    rng = numpy.random.RandomState(23455)
+    rng = numpy.random.RandomState(seed)
     layers0, img_shp, out0 = build_scale_3l_rgbd(
         x0, batch_size, image_shape, nkerns, nfilters,
         sparse, activation, bias, rng, None)
@@ -431,7 +436,8 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
 
 
 def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
-                     nkerns, sparse=False, activation=T.tanh, bias=0.0):
+                     nkerns, seed, sparse=False,
+                     activation=T.tanh, bias=0.0):
     """
     Build model for conv network for segmentation
 
@@ -445,12 +451,16 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
         number of classes
     image_shape: tuple
         image dimensions
-    layers: list
+    nkerns: list of ints
         list of kernel_dimensions
+    seed: int
+        seed for random generator
 
     returns: list
         list of all layers, first layer is actually the last (log reg)
     """
+    assert(type(seed) is int)
+
     # net has 3 conv layers
     assert(len(nkerns) == 3)
     # this version has to have 16 filters in first layer
@@ -461,7 +471,7 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
 
     logger.info('... building the model')
 
-    rng = numpy.random.RandomState(23455)
+    rng = numpy.random.RandomState(seed)
     layers0, img_shp, out0 = build_scale_3l(
         x0, batch_size, image_shape, nkerns, nfilters,
         sparse, activation, bias, rng, None)
@@ -492,20 +502,20 @@ def build_multiscale(x0, x2, x4, y, batch_size, classes, image_shape,
     return layers, img_shp, layer4_in
 
 
-def extend_net_w2l(input, layers, classes, nkerns,
+def extend_net_w2l(input, n_in, layers, classes, nkerns, seed,
                    activation=T.tanh, bias=0.0):
     """
     Extends net with hidden layers.
     """
     assert(len(nkerns) == 2)
-    rng = numpy.random.RandomState(23454)
+    rng = numpy.random.RandomState(seed)
     DROPOUT_RATE = 0.5
 
     layer_h0 = DropoutLayer(input, input.shape, DROPOUT_RATE)
     layer_h1 = HiddenLayer(
         rng=rng,
         input=layer_h0.output,
-        n_in=256 * 3,
+        n_in=n_in,
         n_out=nkerns[0],
         activation=activation, bias=bias
     )
@@ -529,19 +539,19 @@ def extend_net_w2l(input, layers, classes, nkerns,
     return all_layers, new_layers
 
 
-def extend_net_w1l_drop(input, layers, classes, nkerns,
+def extend_net_w1l_drop(input, n_in, layers, classes, nkerns, seed,
                         activation=T.tanh, bias=0.0):
     """
     Extends net with one hidden layers and dropout.
     """
     assert(len(nkerns) == 1)
-    rng = numpy.random.RandomState(23456)
+    rng = numpy.random.RandomState(seed)
     DROPOUT_RATE = 0.5
 
     layer_h0 = HiddenLayer(
         rng=rng,
         input=input,
-        n_in=256 * 3,
+        n_in=n_in,
         n_out=nkerns[0],
         activation=activation, bias=bias
     )
@@ -559,18 +569,18 @@ def extend_net_w1l_drop(input, layers, classes, nkerns,
     return all_layers, new_layers
 
 
-def extend_net_w1l(input, layers, classes, nkerns,
+def extend_net_w1l(input, n_in, layers, classes, nkerns, seed,
                    activation=T.tanh, bias=0.0):
     """
     Extends net with hidden layers.
     """
     assert(len(nkerns) == 1)
-    rng = numpy.random.RandomState(23456)
+    rng = numpy.random.RandomState(seed)
 
     layer_h0 = HiddenLayer(
         rng=rng,
         input=input,
-        n_in=256 * 3,
+        n_in=n_in,
         n_out=nkerns[0],
         activation=activation, bias=bias
     )

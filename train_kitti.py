@@ -16,7 +16,8 @@ import theano.tensor as T
 from helpers.data_helper import shared_dataset
 from helpers.data_helper import build_care_classes
 from helpers.data_helper import calc_class_freqs
-from helpers.build_multiscale import build_multiscale, extend_net_w1l_drop
+import helpers.build_multiscale as net_builders
+from helpers.layers.log_reg import LogisticRegression
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
@@ -43,6 +44,28 @@ def build_weight_updates(configuration, cost, params):
     p['cost'] = cost
     p['params'] = params
     return update_modes[configuration['optimization']](**p)
+
+
+def get_net_builder(name):
+    """
+    name: string
+        net builder name (function that builds theano net)
+    """
+    return net_builders.__dict__[name]
+
+
+def build_loss(log_reg_layer, func_name, *loss_args):
+    """
+    Build loss function
+    log_reg_layer: helpers.layers.log_reg.LogisticRegression object
+        classification layer of a net
+    func_name: string
+        loss function name
+    """
+    loss_function = LogisticRegression.__dict__[func_name]
+    n_args = loss_function.func_code.co_argcount - 1  # minus self
+    selected_args = loss_args[:n_args]
+    return loss_function(log_reg_layer, *selected_args)
 
 
 def evaluate_conv(conf, net_weights=None):
@@ -109,10 +132,11 @@ def evaluate_conv(conf, net_weights=None):
     y = T.imatrix('y')
 
     # create all layers
-    layers, out_shape, conv_out = build_multiscale(
+    builder_name = conf['network']['builder-name']
+    layers, out_shape, conv_out = get_net_builder(builder_name)(
         x0, x2, x4, y, batch_size, classes=n_classes,
         image_shape=image_shape,
-        nkerns=[16, 64, 256],
+        nkerns=conf['network']['layers'][:3],
         activation=lReLU, bias=0.001,
         sparse=False)
     logger.info("Image out shape is %s", out_shape)
@@ -165,7 +189,8 @@ def evaluate_conv(conf, net_weights=None):
     test_model = theano.function(
         [index],
         [log_reg_layer.errors(y_flat),
-         log_reg_layer.bayesian_nll_ds(y_flat, class_freqs, care_classes)] +
+         build_loss(log_reg_layer, conf['network']['loss'],
+                    y_flat, class_freqs, care_classes)] +
         list(log_reg_layer.accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -187,8 +212,8 @@ def evaluate_conv(conf, net_weights=None):
     #  and L2 regularization (lamda * L2-norm)
     # L2-norm is sum of squared params (using only W, not b)
     #  params has Ws on even locations
-    # cost = log_reg_layer.negative_log_likelihood(y_flat)\
-    cost = log_reg_layer.bayesian_nll_ds(y_flat, class_freqs, care_classes)\
+    cost = build_loss(log_reg_layer, conf['network']['loss'],
+                      y_flat, class_freqs, care_classes)\
         + 10**-5 * T.sum([T.sum(w ** 2) for w in weights])
 
     # train_model is a function that updates the model parameters
@@ -244,16 +269,17 @@ def evaluate_conv(conf, net_weights=None):
         layer.set_weights(net_weight)
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net_w1l_drop(
-        conv_out, layers, n_classes,
-        nkerns=[1000],
+    layers, new_layers = net_builders.extend_net_w1l_drop(
+        conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
+        nkerns=conf['network']['layers'][-1],
         activation=lReLU, bias=0.001)
 
     # create a function to compute the mistakes that are made by the model
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].bayesian_nll_ds(y_flat, class_freqs, care_classes)] +
+         build_loss(layers[0], conf['net']['loss'],
+                    y_flat, class_freqs, care_classes)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],
@@ -271,8 +297,8 @@ def evaluate_conv(conf, net_weights=None):
 
     assert(len(weights2) == len(params2)/2)
 
-    # cost2 = layers[0].negative_log_likelihood(y_flat)
-    cost2 = layers[0].bayesian_nll_ds(y_flat, class_freqs, care_classes)
+    cost2 = build_loss(layers[0], conf['network']['loss'],
+                       y_flat, class_freqs, care_classes)
     #     + 10**-3 * T.sum([T.sum(w ** 2) for w in weights2])
 
     #   train_model is a function that updates the model parameters
@@ -317,9 +343,9 @@ def evaluate_conv(conf, net_weights=None):
 if __name__ == '__main__':
     """
     Examples of usage:
-    python train_kitti_rgb.py network.conf
+    python train_kitti.py network.conf
 
-    python train_kitti_rgb.py network.conf network-12-34.bin
+    python train_kitti.py network.conf network-12-34.bin
         trains network starting with weights in network-*.bin file
     """
     logging.basicConfig(level=logging.INFO)

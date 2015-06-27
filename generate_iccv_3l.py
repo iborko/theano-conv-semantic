@@ -7,6 +7,7 @@ import sys
 import logging
 
 from preprocessing.transform_in import yuv_laplacian_norm
+from helpers.load_conf import load_config
 from generate_iccv_1l import main
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,21 @@ if __name__ == "__main__":
 
     show = False
     argc = len(sys.argv)
-    if argc > 1 and sys.argv[1] != "show":
-        print "Wrong arguments"
+    if argc == 2:
+        conf_path = sys.argv[1]
+    elif argc == 3:
+        conf_path = sys.argv[1]
+        if sys.argv[2] == "show":
+            show = True
+        else:
+            print "Wrong arguments"
+            exit(1)
+    else:
+        print "Too few arguments"
         exit(1)
-    if argc > 1 and sys.argv[1] == "show":
-        show = True
 
-    main(gen_layers_for_image, n_layers=3, show=show)
+    conf = load_config(conf_path)
+    if conf is None:
+        exit(1)
+
+    main(conf, gen_layers_for_image, n_layers=3, show=show)
