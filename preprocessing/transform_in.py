@@ -100,7 +100,7 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     img = fill_to_shape(img, requested_shape)
 
     #   convert to YUV (inplace)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    img[:, :, :3] = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2YUV)
 
     float_img = img.astype('float32')
     #   generate laplacian pyramid

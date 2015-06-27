@@ -75,9 +75,7 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
     """
     assert(len(nkerns) == len(nfilters))
 
-    layer0_Y_input = x[:, [0]]  # Y channel
-    layer0_UV_input = x[:, [1, 2]]  # U, V channels
-    layer0_D_input = x[:, [3]]  # depth channel
+    layer0_input = x
 
     # +2 because of two additinal layers (UV, D)
     ws = [None] * (len(nfilters) + 2)
@@ -88,44 +86,18 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
             bs[i] = layer.b
 
     # Construct the first convolutional pooling layer
-    #  layer0 has 10 filter maps for Y channel
-    layer0_Y = ConvPoolLayer(
+    layer0 = ConvPoolLayer(
         rng,
-        input=layer0_Y_input,
-        image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
-        filter_shape=(10, 1, nfilters[0], nfilters[0]),
+        input=layer0_input,
+        image_shape=(batch_size, 4, image_shape[0], image_shape[1]),
+        filter_shape=(nkerns[0], 4, nfilters[0], nfilters[0]),
         activation=activation, bias=bias, border_mode='same',
         ignore_border_pool=False,
         W=ws[0], b=bs[0],
     )
 
-    #  layer0 has 6 filter maps for U and V channel
-    layer0_UV = ConvPoolLayer(
-        rng,
-        input=layer0_UV_input,
-        image_shape=(batch_size, 2, image_shape[0], image_shape[1]),
-        filter_shape=(6, 2, nfilters[0], nfilters[0]),
-        activation=activation, bias=bias, border_mode='same',
-        ignore_border_pool=False,
-        W=ws[1], b=bs[1],
-    )
-
-    #  layer0 has 8 filter maps for DEPTH channel
-    layer0_D = ConvPoolLayer(
-        rng,
-        input=layer0_D_input,
-        image_shape=(batch_size, 1, image_shape[0], image_shape[1]),
-        # filter_shape=(8, 1, nfilters[0], nfilters[0]),
-        filter_shape=(8, 1, 5, 5),
-        activation=activation, bias=bias, border_mode='same',
-        ignore_border_pool=False,
-        W=ws[2], b=bs[2],
-    )
-
     # stack outputs from Y, U, V channel layer
-    layer0_output = T.concatenate([layer0_Y.output,
-                                   layer0_UV.output,
-                                   layer0_D.output], axis=1)
+    layer0_output = layer0.output
 
     image_shape1 = reduce_img_dim(image_shape, False)
 
@@ -161,7 +133,7 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
 
     logger.info("Scale output has size of %s", image_shape3)
 
-    layers = [layer2, layer1, layer0_D, layer0_UV, layer0_Y]
+    layers = [layer2, layer1, layer0]
     return layers, image_shape3, layer2_output
 
 
@@ -406,8 +378,6 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
 
     # net has 3 conv layers
     assert(len(nkerns) == 3)
-    # this version has to have 16 filters in first layer
-    assert(nkerns[0] == 24)
 
     # convolution kernel size
     nfilters = [7, 7, 7]

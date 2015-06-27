@@ -34,16 +34,8 @@ def save_result_img(result_list, result):
 def gen_layers_for_image(i, img):
     img = resize(img[:, :, :], requested_shape)
 
-    rgb_img = img[:, :, 0:3]
-    depth_img = img[:, :, 3]
-    rgb_imgs = yuv_laplacian_norm(rgb_img, requested_shape, n_layers=3)
+    new_imgs = yuv_laplacian_norm(img, requested_shape, 3)
 
-    new_imgs = []
-    for img in rgb_imgs:
-        shp = (img.shape[1], img.shape[2])
-        new_img = np.concatenate(
-            (img, resize(depth_img, shp).reshape((1, shp[0], shp[1]))), axis=0)
-        new_imgs.append(new_img)
     return i, new_imgs
 
 
@@ -221,8 +213,8 @@ def main(conf, gen_func, n_layers, show=False):
         x_test = generate_x(test_samples, n_layers, gen_func)
         y_test = generate_targets(test_samples, cc)
 
-        try_pickle_dump(x_test, OUT_PATH + "x_test.bin")
-        try_pickle_dump(y_test, OUT_PATH + "y_test.bin")
+        try_pickle_dump(x_test, os.path.join(out_folder, "x_test.bin"))
+        try_pickle_dump(y_test, os.path.join(out_folder, "y_test.bin"))
 
     cc.log_stats()
 
