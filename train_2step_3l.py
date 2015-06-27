@@ -273,7 +273,7 @@ def evaluate_conv(conf, net_weights=None):
     logger.info('Starting second step, with Dropout hidden layers')
     layers, new_layers = net_builders.extend_net_w1l_drop(
         conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
-        nkerns=conf['network']['layers'][-1],
+        nkerns=conf['network']['layers'][-1:],
         seed=conf['network']['seed'],
         activation=lReLU, bias=0.001)
 
@@ -281,7 +281,7 @@ def evaluate_conv(conf, net_weights=None):
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         build_loss(layers[0], conf['net']['loss'],
+         build_loss(layers[0], conf['network']['loss'],
                     y_flat, class_freqs, care_classes)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
