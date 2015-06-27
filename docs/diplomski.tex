@@ -892,34 +892,34 @@ Neke od prednosti korištenja alata \textit{Theano} su:
 \end{itemize}
 Mana korištenja \textit{Theana} je upravo to što to nije programski jezik, već se u programskom jeziku \textit{Python} pišu izrazi za \textit{Theano}. Za takvo pisanje izraza je potreban malo drugačiji način razmišljanja koji zahtijeva privikavanje.
 
-Iako su neki alati, poput \textit{Caffe-a} i \textit{PyLearna-a}, jednostavniji za korištenje, mnogo je teže nadograđivati funkcionalnosti jer to iziskuje pisanje C++ i CUDA koji mora biti kompatibilan s već napisanim kodom, dok se u \textit{Theanu} samo definira simbolički izraz za novu funkcionalnost. U trenutku početka rada nisu postojali alati za semantičku segmentaciju, a eventualna proširenja postojećih alata za klasifikaciju bila su u razvoju.
+Iako su neki alati, poput \textit{Caffe-a} i \textit{PyLearna-a}, jednostavniji za korištenje, mnogo je teže nadograđivati funkcionalnosti jer to iziskuje pisanje C++ i CUDA koda koji mora biti kompatibilan s već napisanim kodom, dok se u \textit{Theanu} samo definira simbolički izraz za novu funkcionalnost. U trenutku početka izrade ovog rada nisu postojali alati specijalizirani za semantičku segmentaciju, a eventualna proširenja postojećih alata (namijenjenih klasifikaciji) bila su u razvoju.
 
-Parametri algoritma poput arhitekture mreže, stope učenja, načina pretprocesiranja, vrste algoritma gradijentne optimizacije, i slično, se definiraju u konfiguracijskoj datoteci u JSON formatu koja se predaje kao argument skriptama za generiranja ulaza (pretprocesiranje) i učenje:
+Parametri razvijene radne okoline poput arhitekture mreže, stope učenja, načina pretprocesiranja, vrste algoritma gradijentne optimizacije, i slično, definiraju se u konfiguracijskoj datoteci u JSON formatu koja se predaje kao argument skriptama za generiranje ulaza (predprocesiranje) i učenje:
 \begin{lstlisting}[language=bash]
     python generate.py network.conf
     python train.py network.conf
 \end{lstlisting}
-gdje je \texttt{network.conf} konfiguracijska datoteka u JSON formatu. Primjer datoteke je prikazan u dodatku \ref{chap:konfiguracijska datoteka}
+gdje je \texttt{network.conf} konfiguracijska datoteka u JSON formatu. Primjer datoteke je prikazan u dodatku \ref{chap:konfiguracijska datoteka}. JSON format je odabran jer se bazira na samo dvije strukture podataka: rječniku i listi, što su ujedno dvije glavne strukture koje koristi \textit{Python}. Preslikavanje JSON datoteke u \textit{Python} je zato vrlo jednostavno i implementirano u standardnim knjižnicama jezika \textit{Python}.
 
 \section{Podatci}
-Svaki skup podataka semantički segmentiranih slika koji se koristi mora imati svoju skriptu za ucitavanje u mapi \texttt{dataset}. Tamo već postoje skripte \texttt{loader\_iccv.py} i \texttt{loader\_sift.py} za učitavanje pripadnih datasetova. Svaka \texttt{loader\_*.py} skripta mora imati \texttt{load\_dataset(path)} funkciju koja vraća listu (ili iterator) \texttt{Sample} objekata. Razred \texttt{Sample} je definiran u \texttt{dataset/sample.py} datoteci i sadrži naziv primjera, ulaznu sliku i segmentiranu sliku. Ulazne slike su u obliku \emph{numpy}\footnote{\textit{numpy}, ekstenzija jezika \textit{Python} koja dodaje podršku za višedimenzionalne brojevne nizove i podržava razne matematičke operacije nad njima, http://www.numpy.org} tenzora s 3 dimenzije: visina, sirina i broj kanala, a izlazne slike su u obliku \emph{numpy} matrica gdje je element matrice oznaka (redni broj) pripadnog piksela.
+Svaki skup podataka semantički segmentiranih slika koji se koristi mora imati svoju skriptu za ucitavanje u mapi \texttt{dataset}. Tamo već postoje skripte \texttt{loader\_iccv.py} i \texttt{loader\_kitti.py} za učitavanje pripadnih datasetova. Svaka \texttt{loader\_*.py} skripta mora imati \texttt{load\_dataset(path)} funkciju koja vraća listu (ili iterator) \texttt{Sample} objekata. Razred \texttt{Sample} je definiran u \texttt{dataset/sample.py} datoteci i sadrži: naziv primjera, ulaznu sliku i segmentiranu sliku. Ulazne slike su u obliku \emph{numpy}\footnote{\textit{numpy}, ekstenzija jezika \textit{Python} koja dodaje podršku za višedimenzionalne brojevne nizove i podržava razne matematičke operacije nad njima, http://www.numpy.org} tenzora s 3 dimenzije: visina, širina i broj kanala, a izlazne slike su u obliku \emph{numpy} matrica gdje je element matrice oznaka (redni broj) pripadnog piksela.
 
 \section{Predprocesiranje}
 Pomoću konfiguracijske datoteke moguće je definirati niz funkcija koja se koriste tokom predprocesiranja. Neki od primjera funkcija:
 \begin{description}
   \item[yuv] pretvara RGB kanale u YUV kanale
-  \item[int\_to\_float] pretvara intezitete iz raspona od 0 do 255 (cijeli brojevi) u raspon 0 do 1 (decimalni brojevi)
+  \item[int\_to\_float] pretvara intenzitete iz raspona od 0 do 255 (cijeli brojevi) u raspon 0 do 1 (decimalni brojevi)
   \item[normalize] normalizira sliku tako da svaki kanal ima srednju vrijednost inteziteta 0 i standardnu devijaciju 1
-  \item[normalize\_block] normalizira sliku tako da svaki $15 \cdot 15$ blok piksela svakog kanala ima srednju vrijednost intenziteta 0 i standardnu deviaciju 1
+  \item[normalize\_block] normalizira sliku tako da svaki blok od $15 \cdot 15$ piksela svakog kanala ima srednju vrijednost intenziteta 0 i standardnu deviaciju 1
 \end{description}
 
 
 \section{Arhitektura mreže}
 \label{chap:net_architecture}
 
-Konvolucijska mreža korištena u radu je napravljena po uzoru na mrežu iz rada \cite{farabet_pami}. Mreža se može podijeliti u dvije logičke cjeline: detektor značajki i klasifikator: detektor značajki se sastoji od konvolucijskih slojeva i slojeva sažimanja, a klasifikator se sastoji od višeslojnog perceptrona (potpuno povezanog sloja) i multinomijalne regresije (višeslojne regresije za više razreda).
+Konvolucijska mreža korištena u radu je napravljena po uzoru na mrežu iz rada \cite{farabet_pami}. Mreža se može podijeliti u dvije logičke cjeline: detektor značajki i klasifikator: detektor značajki se sastoji od konvolucijskih slojeva i slojeva sažimanja, a klasifikator se sastoji od potpuno povezanog sloja i multinomijalne regresije (višeslojne regresije za više razreda).
 
-Sama mreža se trenira u dvije faze: tokom prve faze se trenira samo detektor značajki, a tokom druge faze samo klasifikacijski dio. U praksi to znači da se prvo na detektor značajki spoji samo multinomijalna regresija i trenira se takav sustav. Nakon toga se, u drugoj fazi, na detektor značajki spoji višeslojni perceptron s \emph{dropout} slojem i slojem multinomijalne regresije i uče se samo njihove težine.
+Sama mreža se trenira u dvije faze: tokom prve faze se trenira samo detektor značajki, a tokom druge faze samo klasifikacijski dio. U praksi to znači da se prvo na detektor značajki spoji samo multinomijalna regresija i trenira se takav sustav. Nakon toga se, u drugoj fazi, na detektor značajki spoji potpuno povezani sloj s \emph{dropout} slojem i slojem multinomijalne regresije i uče se samo njihove težine.
 
 Detektor značajki se sastoji od tri paralelne razine. Svaka razina prima sliku drugačije veličine: prva razina prima originalnu sliku, druga razina prima sliku poduzorkovanu na pola dok treća prima sliku poduzorkovanu na četvrtinu originalne veličine. Svaka razina se sastoji od više slojeva: prvi konvolucijski sloj, sloj sažimanja, drugi konvolucijski sloj, sloj sažimanja, treći konvolucijski sloj. Izlaz svakog konvolucijskog sloja propušta se kroz \textit{lReLU} aktivacijsku funkciju definiranu formulom:
 \begin{equation}
@@ -940,12 +940,19 @@ Definirajmo i pojmove iteracija i epohe. \textbf{Iteracija} se sastoji od jedne 
 
 Realizirana arhitektura modificira skup za učenje nakon svake epohe koristeći slučajne transformacije opisane u poglavlju \ref{chap:dataset_perturbations}. Koristi se skaliranje slike za faktor u rasponu $[1.0, 1.1]$, rotacija za kut u rasponu $[-10, 10]$ stupnjeva, smik u rasponu $[-5, 5]$ stupnjeva i translacija u rasponu $[-20, 20]$ piksela.
 
+
+\section{Postprocesiranje}
+
+Semantičke oznake koje generira implementirana radna okolina su šumovite i ne prate dobre konture objekata i regija na slici. Zato se često koriste metode zaglađivanja tih predikcija: superpikseli ili grafički modeli. Te metode grupiraju piksele ulazne slike u nakupine i određuju segmentičke oznake na temelju oznaka dobivenih iz neuronske mreže.
+
+...
+
 \section{Stopa učenja}
 
-Vrsta gradijentne metode koja se koristi, i njezini parametri, definiraju se u konfiguracijskoj datoteci, u dijelu \texttt{optimization} i \texttt{optimization-params}. Svaka metoda koristi stopu učenja kao jedan od parametara. U implementaciji ovoga rada se koristi postupak dinamčkog smanjivanja stope učenja: početna stopa učenja se prepolovi svaki put kada se pobošljanje na skupu za provjeru \engl{validation set} nije desilo zadnjih \texttt{no-improvement-epochs} epoha. Smanjivanje se provodi dok je stupa učenja veća od \texttt{min-learning-rate}. \texttt{no-improvement-epochs} i \texttt{min-learning-rate} su parametri definirani u konfiguracijskoj datoteci.
+Vrsta gradijentne metode koja se korist (i njezini parametri) definiraju se u konfiguracijskoj datoteci, u dijelu \texttt{optimization} i \texttt{optimization-params}. Svaka metoda koristi stopu učenja kao jedan od parametara. U implementaciji ovoga rada se koristi postupak dinamčkog smanjivanja stope učenja: početna stopa učenja se prepolovi svaki put kada se poboljšanje funkcije troška na skupu za učenje \engl{train set} nije desilo zadnjih \texttt{no-improvement-epochs} epoha. Smanjivanje se provodi dok je stupa učenja veća od \texttt{min-learning-rate}. \texttt{no-improvement-epochs} i \texttt{min-learning-rate} su parametri definirani u konfiguracijskoj datoteci.
 
 \section{Uvjeti zaustavljanja}
-Učenje mreže treba provoditi sve dok ima poboljšanja na skupu za provjeru, ali opet ne predugo kako se model ne bi prenaučio. U sklopu ovog rada implementirana je metoda koja prekida učenje ako nema poboljšanja zadnjih $p$ epoha. $p$ se na početku postavlja na vrijednost od 20 epoha. Svaki put kad se desi poboljšanje na skupu za učenje, $p$ se promijeni:
+Učenje mreže treba provoditi sve dok ima poboljšanja na skupu za provjeru, ali opet ne predugo kako se model ne bi prenaučio. U sklopu ovog rada implementirana je metoda koja prekida učenje ako nema poboljšanja funkcije troška na skupu za provjeru \engl{validation set} zadnjih $p$ epoha. $p$ se na početku postavlja na vrijednost od 20 epoha. Svaki put kada se desi poboljšanje, $p$ se promijeni:
 \begin{equation}
   p := \max \left( p, 10 + 1.1 \cdot epoch \right)
 \end{equation}
@@ -997,11 +1004,13 @@ gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$
   Metoda & Točnost(\%) & Točnost razreda(\%) & Brzina (sec) \\
     \multicolumn{2}{c}{Funkcija troška} & & \\[0.6em] \hline
 
-  Konv. mreža s 3 razine & 75.7 & 59.3 & 0.2 \\
+  Konv. mreža s 3 razine & 75.7 & 59.3 & 0.05 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
-  Konv. mreža s 3 razine + \textit{superpixels} & 76.1 & 59.7 & 0.3 \\
+  Konv. mreža s 3 razine + \textit{superpixels} & 76.1 & 59.7 & 0.11 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
-  Konv. mreža s 3 razine & 73.8 & 60.5 & 0.2 \\
+  Konv. mreža s 3 razine & 71.4 & 64.8 & 0.05 \\
+    \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline
+  Konv. mreža s 3 razine + \textit{superpixels} & 74.2 & 68.1 & 0.11 \\
     \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline \hline
   Farabet et al.\cite{farabet_pami} 2013 & 78.8 & 72.4 & 0.6 \\ \hline
   Farabet et al.\cite{farabet_pami} 2013 + \textit{superpixels} & 80.4 & 74.6 & 0.7 \\ \hline
@@ -1027,15 +1036,15 @@ I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj f
   Metoda & Točnost(\%) & Točnost razreda(\%) & Brzina (sec) \\
     \multicolumn{2}{c}{Funkcija troška} & & \\[0.6em] \hline
 
-  Konv. mreža s 3 razine (RGB) & 73.6 & 42.4 & 0.06 \\
+  Konv. mreža s 3 razine (RGB) & 73.6 & 42.4 & 0.05 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
-  Konv. mreža s 3 razine (RGB) & 69.8 & 55.3 & 0 \\
+  Konv. mreža s 3 razine (RGB) & 69.8 & 55.3 & 0.05 \\
     \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline
-  Konv. mreža s 3 razine (RGBD) & 72.0 & 46.7 & 0 \\
+  Konv. mreža s 3 razine (RGBD) & 78.5 & 45.8 & 0.05 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
-  Konv. mreža s 3 razine (RGBD) & - & - & 0 \\
-    \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline \hline
-  Ros et al.\cite{ros:2015} 2015 & 81.1 & 58.0 & 0.46 \%
+  Konv. mreža s 3 razine (RGBD) + \textit{superpixels} & 79.1 & 46.1 & 0.11 \\
+    \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline \hline
+  Ros et al.\cite{ros:2015} 2015 & 81.1 & 58.0 & 0.46
 \end{tabular}
 \caption{Rezultati na KITTI skupu podataka}
 \end{table}
@@ -1044,11 +1053,11 @@ TODO: slika kretanja gubitka kroz učenje, primjeri dobivene segmentacije
 
 \chapter{Zaključak}
 
-Područje dubokih neuronskih mreža nedavno se počelo ubrzano razvijati, a u mnogim područjima računalnog vida već postiže odlične rezultate. U ovom radu su opisane neuronske mreže, s naglaskom na konvolucijske neuronske mreže. Opisane su i metode učenja neuronskih mreža te mnogi detalji oko njihovog korištenja.
+Područje dubokih neuronskih mreža nedavno se počelo ubrzano razvijati, a u mnogim područjima računalnog vida već postiže odlične rezultate. U ovom radu su opisane neuronske mreže, s naglaskom na konvolucijske neuronske mreže, metode učenja neuronskih mreža te mnogi detalji oko njihovog korištenja.
 
-U sklopu ovog rada implementiran je cjelokupni sustav za semantičku segmentaciju korištenjem konvolucijskih neuronskih mreža. Sustav je realiziran korištenjem radne okoline Theano koja omogućuju pokretanje koda na grafičkim karticama s podrškom za CUDA jezik. Izgrađeni sustav se sastoji od slojeva neuronskih mreža poput konvolucijskih slojeva, slojeva sažimanja, višeslojnog perceptron, multinomijalne regresije i slično, koji se mogu kombinirati u razne arhitekture.
+U sklopu ovog rada implementiran je cjelokupni sustav za semantičku segmentaciju korištenjem konvolucijskih neuronskih mreža. Sustav je realiziran korištenjem radne okoline \textit{Theano} koja omogućuju pokretanje koda na grafičkim karticama s podrškom za CUDA jezik. Izgrađeni sustav se sastoji od slojeva neuronskih mreža poput konvolucijskih slojeva, slojeva sažimanja, potpuno povezanog sloja, multinomijalne regresije i slično, koji se mogu kombinirati u razne arhitekture.
 
-Arhitektura korištena u ovoj implementaciji napravljena je po uzoru na arhitekturu koju su predložili Farabet et al.\cite{farabet_pami}. Osim same mreže napisane su razne gradijentne metode poput stohastičkog gradijentnog spusta i Rmsprop-a, mnoge aktivacijske funkcije, skripte za predprocesiranje slika i postprocesiranje rezultata.
+Arhitektura korištena u ovoj implementaciji napravljena je po uzoru na arhitekturu koju su predložili Farabet et al.\cite{farabet_pami}. Osim same mreže napisane su razne gradijentne metode poput stohastičkog gradijentnog spusta i \textit{Rmsprop}-a, mnoge aktivacijske funkcije, skripte za predprocesiranje slika i postprocesiranje rezultata.
 
 Arhitektura je prvo testirana na Stanford Background skupu podatka gdje su postignuti rezultati usporedivi s onima u drugim radovima. Taj sustav je radio samo s RGB slikama na ulazu. Nakon toga je sustav proširen tako da može primati i RGB-D slike i evaluiran na KITTI skupu podataka za semantičku segmentaciju gdje je isto postigao relevantne rezultate.
 
@@ -1067,6 +1076,12 @@ Primjer konfiguracijske datoteke (JSON format).
     "evaluation": {
         "batch-size": 4
     },
+    "network": {
+        "layers": [16, 64, 256, 1000],
+        "loss": "negative_log_likelihood",
+        "builder-name": "build_multiscale",
+        "seed": 23451
+    },
     "training": {
         "optimization": "rms",
         "optimization-params": {
@@ -1075,7 +1090,7 @@ Primjer konfiguracijske datoteke (JSON format).
         },
         "epochs": -1,
         "learning-rate-decrease-params": {
-            "no-improvement-epochs": 7,
+            "no-improvement-epochs": 4,
             "min-learning-rate": 0.00001
         }
     },
@@ -1087,7 +1102,7 @@ Primjer konfiguracijske datoteke (JSON format).
         },
         "epochs": 130,
         "learning-rate-decrease-params": {
-            "no-improvement-epochs": 5,
+            "no-improvement-epochs": 3,
             "min-learning-rate": 0.00001
         }
     },
@@ -1098,6 +1113,19 @@ Primjer konfiguracijske datoteke (JSON format).
 }
 \end{lstlisting}
 \texttt{"tranining"} označava prvu fazu učenja (učenje generatora značajki), \texttt{"training2"} označava drugu fazu učenja (učenje klasifikatora). \texttt{"epochs": -1} označava da je broj epoha neograničen.
+
+\chapter{Implementacija}
+\section{Primjer koda u Theanu}
+
+Osnovni primjer koda u Theanu i objasnjenje logike
+
+\section{Razvijena radna okolina}
+
+Popis funkcija i sto one rade.
+Funkcija 1
+
+Funkcija 2
+
 
 \begin{sazetak}
 U ovom radu opisane su duboke neuronske mreže, s posebnim naglaskom na konvolucijske neuronske mreže. Detaljno su obrađene metode i postupci koji se koriste kod učenja konvolucijskih neuronskih mreža. Implementirana je konvolucijska mreža za semantičku segmentaciju u Theano radnoj okolini i isprobana na dva skupa podataka: Stanford Background skupu podatka koji za ulaz ima RGB slike i na KITTI skupu podataka koji na ulazu ima RGB-D slike. Na kraju su prikazani dobiveni rezultati, s opisima i slikama.
