@@ -3,6 +3,7 @@
 \usepackage{nameref}
 \usepackage{listings}
 \usepackage{bchart}
+\usepackage{adjustbox}
 
 \usepackage{xcolor}
 
@@ -47,13 +48,13 @@
 
 \begin{document}
 
-% TODO: Navedite broj rada.
+% Navedite broj rada.
 \thesisnumber{1147}
 
-% TODO: Navedite naslov rada.
+% Navedite naslov rada.
 \title{Semantička segmentacija prirodnih scena dubokim neuronskim mrežama}
 
-% TODO: Navedite vaše ime i prezime.
+% Navedite vaše ime i prezime.
 \author{Ivan Borko}
 
 \maketitle
@@ -78,7 +79,7 @@ Ovaj rad opisuje sustav za semantičku segmentaciju koji koristi već segmentira
 Do prije četiri godine godine konvolucijske mreže nisu bile glavni alat za semantičku segmentaciju. Tada su se uglavnom koristile razne metode temeljene na grafovima i grupiranju piksela u skupine. U takvim postupcima često se za svaku regiju koja predstavlja okolinu piksela računaju HOG \engl{histogram of gradients} ili SIFT \engl{scale invariant feature transform} opisnici \cite{Lowe:1999}. Ti opisnici predstavljaju značajku te regije i ulaze u klasifikator koji ih zatim klasificira i grupira.
 Kod korištenja klasifikatora temeljenih na stablima odluka opet se učenjem parametara minimizira funkcija gubitka. Parametri stabla su parametri podjele podataka u svakom čvoru \engl{decision stump parameters} i oni se kod stabala uče uzorkovanjem, budući da je podjela podataka nederivabilna funkcija.
 
-U drugom su poglavlju opisane neuronske mreže: od njihove prve ideje, kroz razvoj perceptrona i logističke regresije sve do današnjih dubokih neuronskih mreža, posebice konvolucijskih neuronskih mreža. U trećem poglavlju opisane su metode učenja neuronskih mreža: metode gradijentnog spusta i vrste regularizacija. Četvrto poglavlje opisuje pojam semantičke segmentacija i korištene testne skupove podataka. U petom se poglavlju opisuju detalji programske implementacije konvolucijske neuronske mreže iz ovog rad, a šestom su opisani rezultati koje je implementirana mreža postigla. U sedmom je poglavlju dan zaključak rada.
+U drugom su poglavlju opisane neuronske mreže: od njihove prve ideje, kroz razvoj perceptrona i logističke regresije sve do današnjih dubokih neuronskih mreža, posebice konvolucijskih neuronskih mreža. U trećem poglavlju opisane su metode učenja neuronskih mreža: metode gradijentnog spusta i vrste regularizacija. Četvrto poglavlje opisuje pojam semantičke segmentacija i korištene skupove podataka. U petom se poglavlju opisuju detalji programske implementacije konvolucijske neuronske mreže iz ovog rad, a šestom su opisani rezultati koje je implementirana mreža postigla. U sedmom je poglavlju dan zaključak rada.
 
 \chapter{Neuronske mreže}
 
@@ -88,18 +89,18 @@ Osnovni element umjetne neuronske mreže je umjetni neuron. Prvi umjetni neuron,
 
 \begin{figure}[htb]
 \centering
-\includegraphics{imgs/percep.png}
+\includegraphics[width=220px]{imgs/percep.png}
 \caption{Primjer perceptrona s 3 ulaza}
 \label{fig:percep}
 \end{figure}
 
-Slika \ref{fig:percep} prikazuje primjer perceptrona koji ima 3 ulaza, $x_1, x_2, x_3$. Općenito, broj ulaza je proizvoljan. Rosenblatt je predstavio pravilo kako se računa izlaz iz neurona: postoje težine $w_1, w_2, ...$, realni brojevi koji predstavljaju značaj pripadajućih ulaza. Izlaz neurona se određuje prema tome je li suma $\sum_{j} w_j * x_j$ veća ili manje od neke fiksne vrijednost. Matematički se to može zapisati kao:
+Slika \ref{fig:percep} prikazuje primjer perceptrona koji ima 3 ulaza, $x_1, x_2, x_3$. Općenito, broj ulaza je proizvoljan. Rosenblatt je predstavio pravilo kako se računa izlaz iz neurona: postoje težine $w_1, w_2, ...$, realni brojevi koji predstavljaju značaj pripadajućih ulaza. Izlaz neurona se određuje prema tome je li suma $\sum_{j} w_j \cdot x_j$ veća ili manje od neke fiksne vrijednost. Matematički se to može zapisati kao:
 \begin{equation}
 izlaz =
 \left\{
 	\begin{array}{ll}
-		0  & \mbox{ako } \sum_j w_j * x_j \leq prag \\
-		1  & \mbox{ako } \sum_j w_j * x_j >  prag
+		0  & \mbox{ako } \sum_j w_j \cdot x_j \leq prag \\
+		1  & \mbox{ako } \sum_j w_j \cdot x_j >  prag
 	\end{array}
 \right.
 \end{equation}
@@ -108,7 +109,7 @@ Učenje takvog modela se zapravo svodi na podešavanje težina $w_j$ i praga, č
 
 Današnji umjetni neuron koji se koristi u neuronskim mrežama se malo razlikuje od originalne ideje perceptrona po tome što ne koristi step funkciju na izlazu, već neku funckciju iz porodice sigmoidalnih funkcija (neki autori takav neuron nazivaju logistički neuron ili logistički perceptron).
 
-No, nije samo rad Minskog i Paperta kočio razvoj neuronskih mreža: računalna snaga je tada bila veliko ograničenje. Zato su se proučavali tek jednostavni modeli, koji nisu imali dovoljnu moć. Prava moć dolazi tek kada se više perceptrona spoji zajedno kroz više slojeva (vidi Višeslojni perceptron). Tokom 80-ih godina dolazi do razvoja računalnog paralelizma i povećanja računalne snage čime rastu mogućnosti za treniranje i evaluacije kompleksnijih neuronskih mreža.
+No, nije samo rad Minskog i Paperta kočio razvoj neuronskih mreža: računalna snaga je tada bila veliko ograničenje. Zato su se proučavali tek jednostavni modeli, koji nisu imali dovoljnu moć. Prava moć dolazi tek kada se više perceptrona spoji zajedno kroz više slojeva (vidi poglavlje \ref{chap:viseslojni_perceptron}). Tijekom 80-ih godina dolazi do razvoja računalnog paralelizma i povećanja računalne snage čime rastu mogućnosti za treniranje i evaluacije kompleksnijih neuronskih mreža.
 
 Značajan napredak postigao je i Werbos 1975. godine kada je u svojem radu \cite{Werbos:74} primjenio algoritam unazadne propagacije \engl{backpropagation} za učenje neuronskih mreža (vidi poglavlje Backgropagation).
 Često se taj trenutak naziva i renesansom neuronskim mreža jer opisani postupak omogućava lako treniranje neuronskih mreža neovisno o njihovoj složenosti i arhitekturi.
@@ -122,7 +123,7 @@ Ako je $K > 2$ onda pak govorimo o višeklasnoj \engl{multiclass} klasifikaciji.
 Za razliku od klasifikacije, regresija daje realni broj kao izlaz. Cilj je da realni izlaz bude čim sličniji traženom izrazu.
 
 \section{Nadzirano i nenadzirano učenje}
-Dva su glavna pristupa učenju prediktivnih modela koja vrijede i za neuronske mreže: nadzirano i nenadzirano učenje. Tokom nadziranog učenja mreži prezentiramo par podataka $(x, y), x \in X, y \in Y$, gdje je X skup svih ulaza u mrežu, a Y skup pripadnih izlaznih (traženih) vrijednosti.
+Dva su glavna pristupa učenju prediktivnih modela koja vrijede i za neuronske mreže: nadzirano i nenadzirano učenje. Tijekom nadziranog učenja mreži prezentiramo par podataka $(x, y), x \in X, y \in Y$, gdje je X skup svih ulaza u mrežu, a Y skup pripadnih izlaznih (traženih) vrijednosti.
 Cilj je pronaći funkciju $f: X \to Y$, koja aproksimira preslikavanje implicirano u podacima za učenje.
 
 Parametri modela se optimiraju tako da se smanjuje zadana funkcija troška \engl{cost function}. Funkcija troška može biti srednja kvadratna pogreška između traženih i dobivenih vrijednosti na izlazu (većinom korištena za regresijske probleme),
@@ -136,7 +137,7 @@ ili pak pogreška unakrsne entropije (koristi se za binarnu klasifikaciju)
 
 gdje je $y_t$ je tražena vrijednost na izlazu, a $y_p$ je dobivena (predviđena) vrijednost.
 
-Tokom nenadziranog učenja nema izlaznog skupa podataka, samo ulazni skup $X$. Dana je i funkcija troška koja se optimira.
+Tijekom nenadziranog učenja nema izlaznog skupa podataka, samo ulazni skup $X$. Dana je i funkcija troška koja se optimira.
 Cilj može biti kompresija ulaznog višedimenzionalnog vektora u manje dimenzionalan pa je funkcija troška zapravo kvadratna pogrška rekonstrukcije. Ili se pak traži grupiranje podataka u $K$ grupa (primjer je \textit{K-means} algoritam\cite{Hartigan-1979}) koje se isto tako može formulirati kao pronalaženje kodova (centara) koji minimiziraju kvadratnu pogrešku.
 
 
@@ -252,7 +253,7 @@ Recimo da se želi konstruirati sustav za prepoznavanje lica na slici. Mogli bi 
 
 DNN su obično dizajnirane kao mreže s unaprijednom propagacijom, no posljednja istraživanja pokazuju da je moguće koristiti i povratne neuronske mreže  \engl{recurrent networks} u dubokim arhitekturama (primjer je modeliranje jezika). Jedna specifična verzija dubokih neuronskih mreža su konvolucijske neuronske mreže koje su vrlo često korištene u računalnom vidu (detaljno opisane u poglavlju \ref{chap:konvolucijske_mreze}).
 
-Pokazalo se da je proces treniranja dubokih neuronskih mreža iznimno težak. Algoritmi bazirani na gradijentnim metodama skloni su zapinjanju u sedlastim plohama čime se uvelike usporava konvergencija. Drugi je problem nestajući gradijent \engl{vanishing gradient problem} koji se dešava tokom unazadne propagacije gradijenata jer se iznos gradijenata smanjuje za red veličine po sloju što znači da se gradijent teško prenosi do prednjih slojeva. Taj se problem rješava korištenjem ne-sigmoidnih aktivacijskih funkcija poput \textit{ReLU} (više u poglavlju \ref{chap:aktivacijske_funkcije}).
+Pokazalo se da je proces treniranja dubokih neuronskih mreža iznimno težak. Algoritmi bazirani na gradijentnim metodama skloni su zapinjanju u sedlastim plohama čime se uvelike usporava konvergencija. Drugi je problem nestajući gradijent \engl{vanishing gradient problem} koji se dešava tijekom unazadne propagacije gradijenata jer se iznos gradijenata smanjuje za red veličine po sloju što znači da se gradijent teško prenosi do prednjih slojeva. Taj se problem rješava korištenjem ne-sigmoidnih aktivacijskih funkcija poput \textit{ReLU} (više u poglavlju \ref{chap:aktivacijske_funkcije}).
 
 Dosta čest argument protiv neuronskih mreža je znao biti da one često zapnu u lokalnim minimumima, ali se pokazalo da su lokalni minimumi u koje mreža ode svi dosta blizu globalnog minimuma. \cite{choromanska14}
 
@@ -271,13 +272,14 @@ Osnovna ideja autoenkodera je poprilično jednostavna: imamo neuronsku mrežu ko
 Najjednostavniji model autoenkoderske mreže ima, kao što je već spomenuto, tri sloja (poput MLP-a, poglavlje \ref{chap:viseslojni_perceptron}): ulazni, skriveni i izlazni. Skriveni sloj ima manje neurona od ulaznog, jer se prebacivanjem iz ulaznog u skriveni vrši sažimanje. Postupkom treniranja se nastoji postići da informacija koja dođe na ulazni sloja ($\boldsymbol{x}$) čim sličnija izađe iz izlaznog sloja ($\hat{\boldsymbol{x}}$). Iz toga slijedi da izlazni i ulazni sloj moraju imati jednak broj neurona. Pogreška rekonstrukcije ($\Delta \boldsymbol{x} = \boldsymbol{x} - \hat{\boldsymbol{x}}$) se koristi za podešavanje težina u mreži.
 \begin{figure}[htb]
 \centering
-\includegraphics{imgs/autoencoder.png}
+\includegraphics[width=330px]{imgs/autoencoder.png}
 \caption{Jednostavni autoenkoder s jednim skrivenim slojem}
 \label{fig:autoencoder}
 \end{figure}
 
-Hinton je u radu \cite{hinton_autoencoder} prvi upotrijebio autoenkodere kao metodu treniranje dubokih neuronskih mreža. Takvim se treniranjem svaki sloj redom uzima kao skriveni sloj autoenkodera i trenira. Na kraju se cijela mreža nastala od tako istreniranih slojeva spaja i rezultirajuća se mreža fino ugađa primjenom postojećih gradijentnih tehnika.
-Treniranjem slojeva pojedinačno poboljšava se pretraga parametarskog prostora mreže: bolje se izbjegavaju lokalni optimumi. Moguće je efikasno trenirati više slojeva koji sadrže veći broj neurona, što omogućava stvaranje puno kompleksnijih mreža koje se dobro nose s težim zadatcima. Niži slojevi mogu se trenirati sa neoznačenim podatcima (polu-nadzirano učenje).
+Hinton je u radu \cite{hinton_autoencoder} prvi upotrijebio autoenkodere kao metodu učenja dubokih neuronskih mreža. Takvim se treniranjem svaki sloj redom uzima kao skriveni sloj autoenkodera i uči. Na kraju se cijela mreža, nastala od tako istreniranih slojeva, spaja i rezultirajuća se mreža fino ugađa primjenom postojećih gradijentnih tehnika.
+Treniranjem slojeva pojedinačno poboljšava se pretraga parametarskog prostora mreže: bolje se izbjegavaju lokalni optimumi. Moguće je efikasno trenirati više slojeva koji sadrže veći broj neurona, što omogućuje stvaranje puno kompleksnijih mreža koje se dobro nose s težim zadatcima. Niži slojevi mogu se učiti sa neoznačenim podatcima (polu-nadzirano učenje), čime slojevi uče samo efikasno kodirati informacije na ulazu.
+Kod dubokih neuronskih mreža autoenkoderi se koriste samo u situacijama gdje je skup za učenje jako malen i to kao početna faza učenja.
 
 \section{Konvolucijske neuronske mreže}
 \label{chap:konvolucijske_mreze}
@@ -286,13 +288,18 @@ Duboke neuronske mreže koje sadrže konvolucijske slojeve (pojašnjeni u sljede
 
 \subsection{Konvolucijski sloj}
 
+U zadacima računalnog vida posebno se osjeti rast parametara s dubinom i širinom mreže jer se na ulazu nalaze slike, dimenzija često preko 100x100 piksela (relativno mala slika), što daje 10 000 značajki na ulazu i čini ulazni prostor visoko dimenzionalnim. Uzmimo za primjer mrežu sa 10 000 ulaznih neurona i 1000 skrivenih neurona. Takav prvi sloj ima već 10 milijuna težina, a slaganjem mreže u dubinu se taj broj još povećava, mreža se teško i sporo trenira te je sklona prenaučenosti. Konvolucijski slojevi, u usporedbi sa potpuno povezanim slojevima imaju višestruko manji broj parametara.
+
 Znanstveni radovi temeljeni na vidnom korteksu \engl{visual cortex} mačaka pokazali su da postoji složeni raspored vidnih stanica u oku. Neke od tih stanica osjetljive su na samo malu podregiju vidnog polja nazvanu osjetilno polje \engl{receptive field}. Takve su stanice raspoređene da pokrivaju cijelo vidno polje. Dodatno, identificirana su dva tipa stanica: jednostavne stanice i kompleksne stanice. Jednostavne maksimalno reagiraju na podražajne oblike s izraženim bridovima dok složene imaju veća osjetilna područja i invarijantne su na točnu poziciju podražaja.
 
 Budući da je vizualni korteks trenutno najmoćniji sustav vida, čini se logičnim pokušati emulirati njegovo ponašanje. Mnogi takvi sustavi se mogu pronaći u literaturi: sustav NeoCognitron \cite{neocognitron} je jedan od najranijih pokušaja, a kasnije su uslijedili mnogi drugi \cite{cortex_mehachanism} \cite{gradient_document}.
 
-Konvolucija je matematički pojam, definiran kao učestalo primjenjivanje funkcije na podacima. U ovom konktekstu to znači primjenjivati ''filter'' na sliku po svim mogućima pomacima, oponašajući osjetilne stanice u ljudskom oku. Filter predstavlja skup težina povezanih sa prethodnim slojem, gdje je prethodni sloj komadić 2-D ulazne slike, a izlaz je jedan neuron. Takav se filter primjenjuje pomičući kroz cijelu sliku, pri čemu se ''osjetilna polja''' preklapaju, kao što je prikazano na slici \ref{fig:sparse-nn} te nastaje nova 2-D matrica koja se naziva mapa značajki. Jedan konvolucijski sloj sadrži više takvih filtera što ima za posljedicu da nastaje i više mapa značajki.
+Važna stvar koju su takvi sustavi pokušali riješiti je i lokalna osjetljivost.
+Za područje računalnog vida važno je da se određeni oblici detektiraju neovisno o njihovoj lokaciji na slici. Potpuno povezani sloj ima posebne težine za svaki piksel. To znači da će neki dio mreže moći prepoznati neki oblik samo ako ga vidi na lokacijama na kojima se pojavljivao tijekom učenja, što se želi izbjeći.
 
-U zadacima računalnog vida posebno se osjeti rast parametara s dubinom i širinom mreže jer se na ulazu nalaze slike (u digitalnom obliku), dimenzija često preko 100x100 piksela (relativno mala slika), što daje 10 000 značajki na ulazu i čini ulazni prostor visoko dimenzionalnim. Uzmimo za primjer mrežu sa 10 000 ulaznih neurona i 1000 skrivenih neurona. Takav prvi sloj ima već 10 milijuna težina, a slaganjem mreže u dubinu se taj broj još povećava, mreža se teško i sporo trenira te je sklona prenaučenosti.
+Tako se došlo do ideje da bi se mogao koristiti filter koji se pomiče po ulaznom vektoru i na svakoj poziciji pomaka daje određeni izlaz. U slučaju jednodimenzionalnog ulaza jezgra je vektor, u slučaju dvodimenzionalnog ulaza jezgra je matrica, i tako dalje. Takva jezgra ima dimenzije višestruko manje od ulaza (obično 3, 5 ili 7 piksela), čime se rješava i problem velikog broja parametara u dubokim mrežama.
+
+Tako se dolazi do konvolucije, matematičkog pojma definiranog kao učestalo primjenjivanje funkcije na podacima. U ovom konktekstu to znači primjenjivati filter na sliku po svim mogućima pomacima, oponašajući osjetilne stanice u ljudskom oku. Filter predstavlja skup težina povezanih sa prethodnim slojem, gdje je prethodni sloj komadić 2-D ulazne slike, a izlaz je jedan neuron. Takav se filter primjenjuje pomičući kroz cijelu sliku, pri čemu se ''osjetilna polja''' preklapaju, kao što je prikazano na slici \ref{fig:sparse-nn} te nastaje nova 2-D matrica koja se naziva mapa značajki. Jedan konvolucijski sloj sadrži više takvih filtera što ima za posljedicu da nastaje i više mapa značajki.
 
 %(slika http://deeplearning.net/tutorial/_images/sparse_1D_nn.png)
 \begin{figure}[htb]
@@ -302,7 +309,7 @@ U zadacima računalnog vida posebno se osjeti rast parametara s dubinom i širin
 \label{fig:sparse-nn}
 \end{figure}
 
-Konvolucijski slojevi iskorištavaju lokalnu korelaciju (jedan neuron utječe samo na bliske susjede), što znači da je neuron $m-1$ sloja povezan samo sa prostorno bliskim neuronima $m$-tog sloja. Na slici \ref{fig:sparse-nn} je primjer lokalnog povezivanja širine 3 neurona za jednodimenzijski ulaz.
+Lokalna osjetljivost je u konvolucijskom sloju riješena lokalnom korelacijom neurona, što znači da je neuron $m-1$ sloja povezan samo sa prostorno bliskim neuronima $m$-tog sloja. Na slici \ref{fig:sparse-nn} je primjer lokalnog povezivanja širine 3 neurona za jednodimenzijski ulaz.
 Neka je $m-1$ sloj ulazni sloj. Tada je vidno polje neurona u sloju m široko 3 s obzirom na ulaz. Neuroni u sloju $m+1$ su isto povezani s 3 neurona iz prošlog sloja, ali ako se gledaju s obzirom na ulazni sloj, onda je njihovo vidno polje široko 5 neurona. Arhitektura mreže tako ograničava takve ''filtere'' na lokalni uzorak (budući da ne reagiraju na druge dijelove ulaza). Slaganje više takvih slojeva omogućava da ''filteri'' polako postaju globalni (odnosno prostiru se preko većeg broja ulaznih piksela). Na primjer, neuron u sloju $m+1$ može predstavljati \engl{encode} nelinearnu značajku duljine 5.
 
 \begin{figure}[htb]
@@ -312,10 +319,8 @@ Neka je $m-1$ sloj ulazni sloj. Tada je vidno polje neurona u sloju m široko 3 
 \label{fig:conv-nn}
 \end{figure}
 
-Budući da se govori o primjeni u računalnom vidu, ulazi su uglavnom 2D slike.
-Ulaz u konvolucijski sloj ima dimezije $x \cdot y \cdot r$, gdje je $x$ širina slike, $y$ visina slike, a $r$ je broj kanala (konkretno za RGB sliku je $r = 3$). Dimenzionalnost konvolucijskog sloja ne ovisi direktno o ulaznom sloju, već samo o broju kanala i iznosi $d \cdot d \cdot r \cdot k$, gdje je $d$ širina odnosno visina filtera za konvoluciju, $r$ je broj kanala prethodnog sloja, $k$ je broj mapa značajki trenutnog sloja (ekvivalent broju kanala na ulazu). Primjer takvog sloja ima filter dimenzija $7 \cdot 7$ i 20 mapa značajki što daje $7 \cdot 7 \cdot 3 \cdot 20 = 2940$ težina (značajno manje od prije spomenutih 10 milijuna). Naravno, broj mapa značajki se zna penjati i do nekoliko stotina, no broj težina je i u tom slučaju smanjen naspram potpuno povezanog skrivenog sloja.
-
-Gledano s drugog stajališta, neuroni koji čine konvolucijski sloj dijele zajednički vektor težina $\boldsymbol{w}$ i pomak $b$. Time se omogućava da se neka značajka otkrije bez obzira na njezinu lokaciju u ulaznom prostoru. Ova je tehnika vrlo efikasna jer uvelike smanjuje broj parametara sloja, pa time i broj parametara koji se treniraju. I \emph{gradijentni spust} se još uvijek može koristiti za učenje parametara. Slika \ref{fig:conv-nn} prikazuje takav sloj. Težine iste boje su zajedničke neuronima.
+Kod primjene u računalnom vidu, ulazi su uglavnom 2D slike.
+Neka ulaz u konvolucijski sloj ima dimezije $x \cdot y \cdot r$, gdje je $x$ širina slike, $y$ visina slike, a $r$ je broj kanala (konkretno za RGB sliku je $r = 3$). Dimenzionalnost konvolucijskog sloja ne ovisi direktno o ulaznom sloju, već samo o broju kanala i iznosi $d \cdot d \cdot r \cdot k$, gdje je $d$ širina odnosno visina filtera za konvoluciju, $r$ je broj kanala prethodnog sloja, $k$ je broj mapa značajki trenutnog sloja (ekvivalent broju kanala na ulazu). Primjer takvog sloja ima filter dimenzija $7 \cdot 7$ i 20 mapa značajki što daje $7 \cdot 7 \cdot 3 \cdot 20 = 2940$ težina, što je značajno manje od milijuna spomenutih na početku poglavlja. Naravno, broj mapa značajki se zna penjati i do nekoliko stotina, no broj težina je i u tom slučaju smanjen naspram potpuno povezanog skrivenog sloja.
 
 Mapa značajki, odnosno izlaz konvolucijskog sloja, se dobije ponavljanim apliciranjem funkcije po podregiji slike, ili drugim rječima, konvolucijom ulazne slike s linearnim filterom, dodajući pristranost sloja $b$ i primjenjujući aktivacijsku funkciju. Ako označimo k-tu mapu značajki nekog sloja kao $h^k$, čiji su filteri određeni težinama $W^k$ i pristranošču $b_k$, onda izlaz takve mape značajki možemo zapisati kao:
 \begin{equation}
@@ -399,14 +404,22 @@ Vjerovalo se i da dobri rezultati, koje ReLU aktivacije postižu u dubokim neuro
 
 \subsection{Sažimanje}
 
-Sažimanje kod dubokih neuronskih mreža je vrsta poduzorkovanja gdje se ulazna slika (ili mapa značajki) dijeli na više nepreklapajućih pravokutnika i za svaki pravokutnik vrati se jedna vrijednost. Postoji više vrsta sažimanja, a najčešće se koriste sažimanje maksimalnog odziva \engl{max pooling} i sažimanje prosjekom \engl{average pooling}.
+\textbf{Sažimanje} kod dubokih neuronskih mreža je vrsta poduzorkovanja gdje se ulazna slika (ili mapa značajki) dijeli na više nepreklapajućih pravokutnika i za svaki pravokutnik vrati se jedna vrijednost. Postoji više vrsta sažimanja, a najčešće se koriste sažimanje maksimalnog odziva \engl{max pooling} i sažimanje prosjekom \engl{average pooling}. Primjer sažimanja maksimalnim odzivom prikazan je na slici \ref{fig:max_pooling}.
 U slučaju sažimanja maksimalnim odzivom vrijednost koja se vraća za svaki pravokutnik je maksimum svih vrijednosti unutar pravokutnika, dok je kod sažimanja prosjekom to prosječna vrijednost.
+
 
 Sažimanje maksimalnim odzivom se koristi češće i važno je iz dva razloga:
 \begin{enumerate}
     \item smanjuje računsku složenost za gornje slojeve
     \item povećava neosjetljivost na translacije u slici
 \end{enumerate}
+
+\begin{figure}[htb]
+\centering
+\includegraphics{imgs/max-pooling.png}
+\caption{Primjer sažimanja maksimalnim odzivom}
+\label{fig:max_pooling}
+\end{figure}
 
 Pojasnimo malo povećanje neosjetljivosti na translacije: recimo da se radi sažimanje maksimuma nad regijom od 2x2 piksela. Neka je gornji lijevi piksel onaj s maksimalnom vrijednošću. Ako se sve na slici pomakne za jedan piksel udesno, piksel s maksimalnom vrijednošću će biti gornji desni. To znači da će u oba slučaja izlaz sloja sažimanja maksimuma biti jednak, tj biti će neosjetljiv na takve translacije.
 
@@ -719,7 +732,7 @@ gdje je $s$ trenutni iznos eksponencijalnog pomičnog prosjeka, $\aleph$ je kons
 
 \section{Regularizacija}
 
-Regularizacija je često korištena tehnika u strojnom učenju, a odnosi se na postupak pružanja dodatnih informacija funkciji gubitka kako bi se rješio problem šuma u ulaznom skupu podataka i problem prenaučenosti. Prenaučenost je pojava tokom učenja modela kad se model prilagodi skupu za učenje u tolikoj mjeri da točnost na skupu za provjeru \engl{validation set} počne padati, iako se točnost na skupu za učenje povećava.
+Regularizacija je često korištena tehnika u strojnom učenju, a odnosi se na postupak pružanja dodatnih informacija funkciji gubitka kako bi se rješio problem šuma u ulaznom skupu podataka i problem prenaučenosti. Prenaučenost je pojava tijekom učenja modela kad se model prilagodi skupu za učenje u tolikoj mjeri da točnost na skupu za provjeru \engl{validation set} počne padati, iako se točnost na skupu za učenje povećava.
 
 Regularizacijom se sprječava da se model previše prilagodi skupu za učenje tako da pogreška na neviđenim podacima bude manja (skupu za provjeru) iako se pogreška na skupu za učenju još može smanjiti. U idućim poglavljima navedene su najčešće tehnike za regularizaciju modela dubokih neuronskih mreža.
 
@@ -735,7 +748,7 @@ $L_2$ norma je suma kvadrata komponenti vektora. Za neki vektor $\boldsymbol{x}$
 \norm{\boldsymbol{x}}_2 = \sum_{i = 1}^{n} {x_i}^2
 \end{equation}
 
-Tokom učenja modela, želimo modelom što bolje modelirati podatke nad kojima učimo, no pravi je cilj da model radi dobro na neviđenim primjerima (primjeri koje nije vidio tokom učenja). Pojasnimo na primjeru logističke regresije što se događa ako učenje predugo traje: budući da funkcija negativne log izglednosti asimptotski teži prema nuli, optimizacija nikada neće završiti, a dogodit će se da neke težine u mreži stalno rastu jer tim rastom uzrokuju polagano padanje negativne izglednosti na skupu za učenje. Jednaka stvar se događa i u neuronskim mrežama, gdje je broj težina još puno veći.
+Tijekom učenja modela, želimo modelom što bolje modelirati podatke nad kojima učimo, no pravi je cilj da model radi dobro na neviđenim primjerima (primjeri koje nije vidio tijekom učenja). Pojasnimo na primjeru logističke regresije što se događa ako učenje predugo traje: budući da funkcija negativne log izglednosti asimptotski teži prema nuli, optimizacija nikada neće završiti, a dogodit će se da neke težine u mreži stalno rastu jer tim rastom uzrokuju polagano padanje negativne izglednosti na skupu za učenje. Jednaka stvar se događa i u neuronskim mrežama, gdje je broj težina još puno veći.
 
 Tom rastu se može doskočiti tako da se norma vektora uključi u funkciju gubitka. Funkcija $R$ označava normu vektora težina mreže. Regularizirana funkcija gubitka je onda:
 \begin{equation}
@@ -768,15 +781,15 @@ Kod računalnog vida, koji se većinom bavi slikama, slučajne transformacije su
 
 Slučajne transformacije se koriste tako da se za svaku sliku prvo odabere podskup transformacija koje će se koristiti na toj slici, a zatim se slučajno odabiru parametri svake od odabranih transformacija.
 
-Jedan način korištenja je da se pomoću navednih funkcija unaprijed generira povećana verzija skupa podataka, a drugi da se transformacije provode ''uživo'', odnosno prije svake epohe treniranja. Tokom provođeja transformacija ''uživo'' mreža se nikad ne trenira s istom slikom dva puta. Svaki put mreža ''vidi'' drugu verziju (transformiranu) iste slike čime se uvelike sprječava pretreniranost i prevelika prilagodba na skup za učenje.
+Jedan način korištenja je da se pomoću navednih funkcija unaprijed generira povećana verzija skupa podataka, a drugi da se transformacije provode ''uživo'', odnosno prije svake epohe treniranja. Tijekom provođeja transformacija ''uživo'' mreža se nikad ne trenira s istom slikom dva puta. Svaki put mreža ''vidi'' drugu verziju (transformiranu) iste slike čime se uvelike sprječava pretreniranost i prevelika prilagodba na skup za učenje.
 
 \subsection{Dropout}
 
-Točnost predikcije raznih modela čije treniranje počinje sa slučajno inicijaliziranim parametrima, se povećava ako se koristi prosjek predikcija više istrenranih modela. Takav način korištenja gotovih modela se naziva uprosječivanje modela \engl{model averaging}. No, mane takvog pristupa su (i )što treniranje svake mreže traje dugo i (ii) ne želimo tokom korištenja pokretati više modela za isti primjer jer to opet dugo traje što je pogotovo loše za primjenu u realnom vremenu.
+Točnost predikcije raznih modela čije treniranje počinje sa slučajno inicijaliziranim parametrima, se povećava ako se koristi prosjek predikcija više istrenranih modela. Takav način korištenja gotovih modela se naziva uprosječivanje modela \engl{model averaging}. No, mane takvog pristupa su (i )što treniranje svake mreže traje dugo i (ii) ne želimo tijekom korištenja pokretati više modela za isti primjer jer to opet dugo traje što je pogotovo loše za primjenu u realnom vremenu.
 
 \emph{Dropout} je metoda za učinkovito uprosječivanje modela velikih neuronskih mreža\cite{hinton_dropout}. Uzmimo za primjer jedan skriveni sloj na kojem čemo primjeniti \emph{dropout} metodu. Svaki puta kad mreži na ulaz postavimo jedan primjer iz skupa za učenje, slučajno ''ugasimo'' svaki neuron s vjerojtnošću $p$ (za skrivene slojeve najčešće je $p = 0.5$, odnosno ''ugasimo'' polovicu neurona. ''Gašenjem'' se smatra postavljanje izlaza određenog neurona na 0. To zapravo znači da slučajno odabiremo jednu od $2^H$ arhitektura mreže, gdje je $H$ broj neurona u skrivenom sloju, a sve arhitekture dijele iste težine. Dijeljenje težina između velikog broja arhitektura, odnosno modela, je zapravo jaka regularizacija mreže. Budući da postoji velik broj arhitektura, svaka će pojedina arhitektura vidjeti samo nekolicinu primjera.
 
-Ostaje još za odgovoriti što se događa tokom testiranja modela (ili korištenja). Prva ideja je odabrati nekoliko različitih arhitektura, napraviti njihove predkcije i uprosječiti ih. No, brži način je koristiti sve neurone skrivenog sloja, a njihove izlaze onda pomnožiti s $p$. Može se pokazati da je to jednako računanju geometrijske sredine predikcije svih $2^H$ modela.
+Ostaje još za odgovoriti što se događa tijekom testiranja modela (ili korištenja). Prva ideja je odabrati nekoliko različitih arhitektura, napraviti njihove predkcije i uprosječiti ih. No, brži način je koristiti sve neurone skrivenog sloja, a njihove izlaze onda pomnožiti s $p$. Može se pokazati da je to jednako računanju geometrijske sredine predikcije svih $2^H$ modela.
 
 Kod mreža s više slojeva, \emph{dropout} kod ulaznih slojeva je manji, koristi se $p = 0.9$ (samo 10\% ulaznih neurona se gasi). Neki autori navode da koriste u svim skrivenim slojevima $p = 0.5$, dok neki postepeno smanjuju $p$ od 0.9 (na ulazu), do 0.5 u zadnjem skrivenom sloju.
 
@@ -919,7 +932,7 @@ Pomoću konfiguracijske datoteke moguće je definirati niz funkcija koja se kori
 
 Konvolucijska mreža korištena u radu je napravljena po uzoru na mrežu iz rada \cite{farabet_pami}. Mreža se može podijeliti u dvije logičke cjeline: detektor značajki i klasifikator: detektor značajki sastoji se od konvolucijskih slojeva i slojeva sažimanja, a klasifikator se sastoji od potpuno povezanog sloja i multinomijalne regresije (višeslojne regresije za više razreda).
 
-Sama mreža se trenira u dvije faze: tokom prve faze se trenira samo detektor značajki, a tokom druge faze samo klasifikacijski dio. U praksi to znači da se prvo na detektor značajki spoji samo multinomijalna regresija i trenira se takav sustav. Nakon toga se, u drugoj fazi, na detektor značajki spoji potpuno povezani sloj s \emph{dropout} slojem i slojem multinomijalne regresije i uče se samo njihove težine.
+Sama mreža se trenira u dvije faze: tijekom prve faze se trenira samo detektor značajki, a tijekom druge faze samo klasifikacijski dio. U praksi to znači da se prvo na detektor značajki spoji samo multinomijalna regresija i trenira se takav sustav. Nakon toga se, u drugoj fazi, na detektor značajki spoji potpuno povezani sloj s \emph{dropout} slojem i slojem multinomijalne regresije i uče se samo njihove težine.
 
 Detektor značajki sastoji se od tri paralelne razine. Svaka razina prima sliku drugačije veličine: prva razina prima originalnu sliku, druga razina prima sliku poduzorkovanu na pola dok treća prima sliku poduzorkovanu na četvrtinu originalne veličine. Svaka razina se sastoji od više slojeva: prvi konvolucijski sloj, sloj sažimanja, drugi konvolucijski sloj, sloj sažimanja, treći konvolucijski sloj. Izlaz svakog konvolucijskog sloja propušta se kroz \textit{lReLU} aktivacijsku funkciju definiranu formulom:
 \begin{equation}
@@ -996,7 +1009,7 @@ Na \textit{Stanford Background} skupu za učenje korištena je arhitektura mrež
 
 Prvi konvolucijski sloj transformira 3 ulazna kanala (YUV) u 16 izlaznih mapa značajki: 10 mapa značajki je spojeno isključivo na Y kanal, a preostalih 6 na U i V kanale. Drugi konvolucijski sloj transformira 16 mapa u 64 mape značajki, a treći te 64 mape u konačnih 256 mapa. Budući da postoje 3 razine, svaka daje 256 mapa značajki, što znači da je svaki piksel opisan sa $256 \cdot 3 = 768$ značajki. Svaka razina ima dva sloja sažimanja, tako da od ulazne slike dimenzija 320 x 240 na izlazu zadnjeg konvolucijskog sloja prve razine dobijemu mape značajki dimenzija 80 x 60, odnosno 40 x 30 i 20 x 15 za drugu i treću razinu. Izlazi druge i treće razine su naduzorkuju da bi se dobio 768 mapa značajki dimenzija 80 x 60. Semantičke oznake dobivene mrežom se onda moraju povećati do prave dimenzionalnosti označene slike iz skupa za učenje i usporediti.
 
-U drugoj fazi učenja se dodaje sloj višeslojnog perceptrona sa 1000 neurona, \textit{dropout} sloj (p=0.5) i sloj multinomijalne regresije sa 9 izlaza, što rezultate obično poboljša za jedan do dva posto (naspram multinomijalne regresije izravno spojene na detektor značajki). Prosječno vrijeme učenja mreže je oko 4 sata. Od gradijentnih metoda koristi se Rmsprop sa početnom stopom učenja $2 \cdot 10^{-4}$.
+U drugoj fazi učenja se dodaje potpuno povezani sloj sa 1000 neurona, \textit{dropout} sloj (p=0.5) i sloj multinomijalne regresije sa 9 izlaza, što rezultate obično poboljša za jedan do dva posto (naspram multinomijalne regresije izravno spojene na detektor značajki). Prosječno vrijeme učenja mreže je oko 4 sata. Od gradijentnih metoda koristi se Rmsprop sa početnom stopom učenja $2 \cdot 10^{-4}$.
 
 Mreža opisana u ovom radu u jednom prolazu segmentira cijelu sliku. Sa stajališta brzine i memorije to je odlično, ali problem predstavljaju nebalansirani skupovi podatka. U takvoj arhitekturi nije moguće balasirati skupove podataka poduzorkovanjem ili naduzorkovanjem tako da predstavnika svih razreda bude podjenako. Zato je mreža je evaluirana s dvije različite funkcije troška: s običnom funkcijom negativne log izglednosti i Bayesovom funkcijom log izglednosti\cite{daylac} koja povećava trošak (a time i iznos gradijenata) slabo zastupljenih razreda. Bayesovska negativna log izglednost je definirana formulom:
 \begin{equation}
@@ -1006,6 +1019,8 @@ gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$
 
 \begin{table}
 \centering
+
+\begin{adjustbox}{center}
 \begin{tabular}{l r r r}
   Metoda & Točnost(\%) & Točnost razreda(\%) & Brzina (sec) \\
     \multicolumn{2}{c}{Funkcija troška} & & \\[0.6em] \hline
@@ -1018,15 +1033,25 @@ gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$
     \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline
   Konv. mreža s 3 razine + \textit{superpixels} & 74.2 & 68.1 & 0.11 \\
     \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline \hline
+    
   Farabet et al.\cite{farabet_pami} 2013 & 78.8 & 72.4 & 0.6 \\ \hline
   Farabet et al.\cite{farabet_pami} 2013 + \textit{superpixels} & 80.4 & 74.6 & 0.7 \\ \hline
   Lempitzky et al.\cite{lempitsky11} 2011 & 81.9 & 72.4 & >60 \\ \hline
   Munoz et al.\cite{munoz10} 2010 & 76.9 & 66.2 & 12
 \end{tabular}
+\end{adjustbox}
+
 \caption{Rezultati na Stanford Background skupu podataka}
 \end{table}
 
-Slučajno je odabrano je 15\% slika koje se koriste kao skup za testiranje, na kojima su dobiveni prikazani rezultati. Tokom učenja 10\% slika je izuzeto iz procesa učenja i korišteno kao skup za provjeru  kako bi se odredio trenutak zaustavljanja.
+Slučajno je odabrano je 15\% slika koje se koriste kao skup za testiranje, na kojima su dobiveni prikazani rezultati. Tijekom učenja 10\% slika je izuzeto iz procesa učenja i korišteno kao skup za provjeru  kako bi se odredio trenutak zaustavljanja.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/cost-iccv.png}
+  \caption{Funkcija troška i greška tijekom učenja na Stanford Background podacima}
+  \label{fig:iccv_train}
+\end{figure}
 
 \section{KITTI}
 
@@ -1035,15 +1060,19 @@ I na ovom skupu podataka korištena je arhitektura opisana u poglavlju \ref{chap
 Isprobana je varijanta mreže gdje se koriste samo RGB slike (transformirane u YUV i Laplaceovu piramidu) i varijanta gdje se koristi i dubinska mapa. U mreži koja koristi samo RGB kanale prvi konvolucijski sloj ima 16 filtera (10 spojeno na Y komponentu, 6 na UV komponente), drugi ima 64 filtera, a treći ima 256 filtera.
 Mreža koja koristi i dubinsku informaciju ima jednak raspored filtera, osim što su u prvom sloju svi filteri spojeni na svaki od četiri RGBD kanala.
 
-I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj fazi dodaje se višeslojni perceptron od 1000 neurona, \textit{dropout} sloj i multinomijalna regresija.
+I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj fazi dodaje se potpuno povezani sloj od 1000 neurona i \textit{dropout} sloj.
 
 \begin{table}
 \centering
+
+\begin{adjustbox}{center}
 \begin{tabular}{l r r r}
   Metoda & Točnost(\%) & Točnost razreda(\%) & Brzina (sec) \\
     \multicolumn{2}{c}{Funkcija troška} & & \\[0.6em] \hline
 
   Konv. mreža s 3 razine (RGB) & 73.6 & 42.4 & 0.05 \\
+    \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
+  Konv. mreža s 3 razine (RGB) + \textit{superpixels} & 75.1 & 43.1 & 0.11 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
   Konv. mreža s 3 razine (RGB) & 69.8 & 55.3 & 0.05 \\
     \multicolumn{2}{c}{Bayesova log izglednost} & & \\ \hline
@@ -1051,12 +1080,22 @@ I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj f
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline
   Konv. mreža s 3 razine (RGBD) + \textit{superpixels} & 79.1 & 46.1 & 0.11 \\
     \multicolumn{2}{c}{negativna log izglednost} & & \\ \hline \hline
+    
   Ros et al.\cite{ros:2015} 2015 & 81.1 & 58.0 & 0.46
 \end{tabular}
+\end{adjustbox}
+
 \caption{Rezultati na KITTI skupu podataka}
 \end{table}
 
-TODO: slika kretanja gubitka kroz učenje, primjeri dobivene segmentacije
+Slika \ref{fig:kitti_train} prikazuje vrijednost funkcije troška na skupovima za učenje i provjeru te grešku na skupu za provjeru tijekom učenja. Korištena je verzija mreže koja uzima u obzir i dubinske podatke. Vidljivo je da je učenje trajalo stotinjak epoha. Nagli skok pred kraj učenja je završetak prve faze učenja i početak druge faze.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/cost-kitti-rgbd.png}
+  \caption{Funkcija troška i greška tijekom učenja na KITTI podacima, za RGBD verziju mreže mrežu}
+  \label{fig:kitti_train}
+\end{figure}
 
 \chapter{Zaključak}
 
