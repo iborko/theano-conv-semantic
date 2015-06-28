@@ -95,7 +95,7 @@ def eval_model(conf, train_fn, test_fn, n_train_batches, n_test_batches,
     best_iter = 0
     best_epoch = 0  # best epoch for train cost
     best_params = []
-    best_train_cost = 0.0
+    best_train_cost = numpy.inf
 
     epoch = 0
     done_looping = False
