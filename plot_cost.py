@@ -26,7 +26,7 @@ def parse_log(fname):
             if 'validation cost' in line:
                 val.append(float(line.split('cost:')[-1].strip()))
 
-            if 'validation error' in line:
+            if 'validation error' in line and 'best' not in line:
                 val_error.append(
                     float(line.split('validation error')[-1].split()[-2]))
 
