@@ -50,9 +50,9 @@ def set_layers_training_mode(layers, mode):
 
 def find_best_superpixel_params(func):
     params_grid = {
-        'sigma': [0.3, 0.5, 0.7],
-        'k': [100, 200, 300, 400, 500],
-        'min_size': [20, 50, 70, 100, 150, 200, 300]
+        'sigma': [0.3, 0.5, 0.8],
+        'k': [100, 200, 300, 400],
+        'min_size': [50, 100, 200, 300]
     }
     best_params = None
     best_result = 0.0

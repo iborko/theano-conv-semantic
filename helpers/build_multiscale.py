@@ -77,8 +77,7 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
 
     layer0_input = x
 
-    # +2 because of two additinal layers (UV, D)
-    ws = [None] * (len(nfilters) + 2)
+    ws = [None] * len(nfilters)
     bs = [None] * len(ws)
     if layers is not None:
         for i, layer in enumerate(layers[::-1]):
@@ -110,7 +109,7 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
         filter_shape=(nkerns[1], filters_to_use1, nfilters[1], nfilters[1]),
         activation=activation, bias=bias, border_mode='same',
         ignore_border_pool=False,
-        W=ws[3], b=bs[3],
+        W=ws[1], b=bs[1],
     )
 
     image_shape2 = reduce_img_dim(image_shape1, False)
@@ -125,7 +124,7 @@ def build_scale_3l_rgbd(x, batch_size, image_shape, nkerns, nfilters, sparse,
         activation=activation, bias=bias, border_mode='same',
         poolsize=(1, 1), ignore_border_pool=False,
         only_conv=True,
-        W=ws[4], b=bs[4],
+        W=ws[2], b=bs[2],
     )
 
     image_shape3 = image_shape2
@@ -174,7 +173,7 @@ def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
             bs[i] = layer.b
 
     # Construct the first convolutional pooling layer
-    #  layer0 has 20 filter maps for U and V channel
+    #  layer0 has 10 filter maps for U and V channel
     layer0_Y = ConvPoolLayer(
         rng,
         input=layer0_Y_input,
@@ -185,7 +184,7 @@ def build_scale_3l(x, batch_size, image_shape, nkerns, nfilters, sparse,
         W=ws[0], b=bs[0],
     )
 
-    #  layer0 has 12 filter maps for U and V channel
+    #  layer0 has 6 filter maps for U and V channel
     layer0_UV = ConvPoolLayer(
         rng,
         input=layer0_UV_input,
