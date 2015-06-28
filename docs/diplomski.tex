@@ -4,6 +4,7 @@
 \usepackage{listings}
 \usepackage{bchart}
 \usepackage{adjustbox}
+\usepackage{float}
 
 \usepackage{xcolor}
 
@@ -915,7 +916,7 @@ Parametri razvijene radne okoline poput arhitekture mreže, stope učenja, nači
 gdje je \texttt{network.conf} konfiguracijska datoteka u JSON formatu. Primjer datoteke je prikazan u dodatku \ref{chap:konfiguracijska datoteka}. JSON format je odabran jer se bazira na samo dvije strukture podataka: rječniku i listi, što su ujedno dvije glavne strukture koje koristi \textit{Python}. Preslikavanje JSON datoteke u \textit{Python} je zato vrlo jednostavno i implementirano u standardnim knjižnicama jezika \textit{Python}.
 
 \section{Podatci}
-Svaki skup podataka semantički segmentiranih slika koji se koristi mora imati svoju skriptu za ucitavanje u mapi \texttt{dataset}. Tamo već postoje skripte \texttt{loader\_iccv.py} i \texttt{loader\_kitti.py} za učitavanje pripadnih datasetova. Svaka \texttt{loader\_*.py} skripta mora imati \texttt{load\_dataset(path)} funkciju koja vraća listu (ili iterator) \texttt{Sample} objekata. Razred \texttt{Sample} je definiran u \texttt{dataset/sample.py} datoteci i sadrži: naziv primjera, ulaznu sliku i segmentiranu sliku. Ulazne slike su u obliku \emph{numpy}\footnote{\textit{numpy}, ekstenzija jezika \textit{Python} koja dodaje podršku za višedimenzionalne brojevne nizove i podržava razne matematičke operacije nad njima, http://www.numpy.org} tenzora s 3 dimenzije: visina, širina i broj kanala, a izlazne slike su u obliku \emph{numpy} matrica gdje je element matrice oznaka (redni broj) pripadnog piksela.
+Svaki skup podataka semantički segmentiranih slika koji se koristi mora imati svoju skriptu za učitavanje u mapi \texttt{dataset}. Tamo već postoje skripte \texttt{loader\_iccv.py} i \texttt{loader\_kitti.py} za učitavanje pripadnih datasetova. Svaka \texttt{loader\_*.py} skripta mora imati \texttt{load\_dataset(path)} funkciju koja vraća listu (ili iterator) \texttt{Sample} objekata. Razred \texttt{Sample} je definiran u \texttt{dataset/sample.py} datoteci i sadrži: naziv primjera, ulaznu sliku i segmentiranu sliku. Ulazne slike su u obliku \emph{numpy}\footnote{\textit{numpy}, ekstenzija jezika \textit{Python} koja dodaje podršku za višedimenzionalne brojevne nizove i podržava razne matematičke operacije nad njima, http://www.numpy.org} tenzora s 3 dimenzije: visina, širina i broj kanala, a izlazne slike su u obliku \emph{numpy} matrica gdje je element matrice oznaka (redni broj) pripadnog piksela.
 
 \section{Pretprocesiranje}
 Pomoću konfiguracijske datoteke moguće je definirati niz funkcija koja se koriste tijekom pretprocesiranja. Neki od primjera funkcija:
@@ -930,7 +931,7 @@ Pomoću konfiguracijske datoteke moguće je definirati niz funkcija koja se kori
 \section{Arhitektura mreže}
 \label{chap:net_architecture}
 
-Konvolucijska mreža korištena u radu je napravljena po uzoru na mrežu iz rada \cite{farabet_pami}. Mreža se može podijeliti u dvije logičke cjeline: detektor značajki i klasifikator: detektor značajki sastoji se od konvolucijskih slojeva i slojeva sažimanja, a klasifikator se sastoji od potpuno povezanog sloja i multinomijalne regresije (višeslojne regresije za više razreda).
+Konvolucijska mreža korištena u radu je napravljena po uzoru na mrežu iz rada \cite{farabet_pami}. Mreža se može podijeliti u dvije logičke cjeline: detektor značajki i klasifikator. Detektor značajki sastoji se od konvolucijskih slojeva i slojeva sažimanja, a klasifikator se sastoji od potpuno povezanog sloja i multinomijalne regresije (višeslojne regresije za više razreda).
 
 Sama mreža se trenira u dvije faze: tijekom prve faze se trenira samo detektor značajki, a tijekom druge faze samo klasifikacijski dio. U praksi to znači da se prvo na detektor značajki spoji samo multinomijalna regresija i trenira se takav sustav. Nakon toga se, u drugoj fazi, na detektor značajki spoji potpuno povezani sloj s \emph{dropout} slojem i slojem multinomijalne regresije i uče se samo njihove težine.
 
@@ -939,7 +940,7 @@ Detektor značajki sastoji se od tri paralelne razine. Svaka razina prima sliku 
   lReLU( x ) = \max(x,\ \frac{1}{5} x)
 \end{equation}
 
-Ukupno je to devet konvolucijskih slojeva. No, slojevi na istim pozicijama u svih razinama dijele konvolucijske filtere: prvi konvolucijski sloj prve razine dijeli filtere s prvim konvolucijskim slojem druge i treće razine, itd. Time se uvelike smanjuje složenost modela (broj parametara), no glavna ideja takve arhitekture je otpornost na drugačije veličine objekata. Ako se neki filter prvog konvolucijskog sloja koristi za detekciju kotača, onda on prepoznaje kotač određene veličine. No, što ako je kotač veći? Ovakvom arhitekturom je moguće prepoznati i veći kotač jer će druga razina primiti smanjenu sliku, a time i smanjeni kotač, čime on može biti detektiran istim filterom.
+Ukupno je to devet konvolucijskih slojeva. No, slojevi na istim pozicijama u svih razinama dijele konvolucijske filtere: prvi konvolucijski sloj prve razine dijeli filtere s prvim konvolucijskim slojem druge i treće razine, itd. Time se uvelike smanjuje složenost modela (broj parametara), no glavna ideja takve arhitekture je otpornost na drugačije veličine objekata. Ako se neki filter prvog konvolucijskog sloja koristi za, na primjer, detekciju kotača na automobilu, onda on prepoznaje kotač određene veličine. No, što ako je kotač veći? Ovakvom arhitekturom je moguće prepoznati i veći kotač jer će druga razina primiti smanjenu sliku, a time i smanjeni kotač, čime on može biti detektiran istim filterom.
 
 Budući da svaka razina ima ulaz drugačije veličine, razlikuju se i izlazi. Izlaz druge razine je upola manji nego izlaz prve razine, a izlaz treće razine četiri puta manji. Dobivene mape značajki su zatim ulaz u klasifikator. Ako zadnji konvolucijski sloj daje $k$ mapa značajki, ukupno u klasifiktor onda ulazi $3 \cdot k$ mapa značajki. Budući da se klasificira svaki piksel mape značajki, mape značajki svake razine moraju biti istih dimenzija. Ulaz se onda može prikazati kao:
 \begin{equation}
@@ -977,7 +978,7 @@ Učenje mreže treba provoditi sve dok ima poboljšanja na skupu za provjeru, al
 \end{equation}
 gdje je $epoch$ trenutna epoha učenja. Time se postiže da učenje traje barem 20 epoha, a nakon svakog poboljašanja se $p$ postavi na vrijednost veću za 10 epoha i 10\% epoha od trenutne epohe.
 
-Uzmimo za primjer da je trenutna epoha 50 i desi se poboljšanje. Vrijednost $p$ će tada postati $50 \cdot 1.1 + 10 = 65$. To znači da će se učenje provoditi barem od 65. epohe. Svako poboljašanje u međuvremenu će opet povećati $p$. Što je postupak učenja više napredovao (podrazumijeva i manju stopu učenja), daje mu se više vremena za postizanje boljeg rezultata.
+Uzmimo za primjer da je trenutna epoha 50 i desi se poboljšanje. Vrijednost $p$ će tada postati $50 \cdot 1.1 + 10 = 65$. To znači da će se učenje provoditi barem do 65. epohe. Svako poboljašanje u međuvremenu će opet povećati $p$. Što je postupak učenja više napredovao (podrazumijeva i manju stopu učenja), daje mu se više vremena za postizanje boljeg rezultata.
 
 
 \chapter{Rezultati}
@@ -1005,17 +1006,17 @@ gdje je $C$ skup svih razreda, $\boldsymbol{y}_t$ je skup oznaka za učenje, a $
 
 \section{Stanford Background Dataset}
 
-Na \textit{Stanford Background} skupu za učenje korištena je arhitektura mreže opisana u poglavlju \ref{chap:net_architecture}. Slike su prije ulaza u mrežu pretvorene iz RGB spektra u YUV spektar, zatim su napravljene 3 razine Laplace-ove piramide (jedna razina piramide za jednu razinu mreže) i vrijednosti svakog kanala su normalizirane na raspon $\left[ 0, 1 \right]$.
+Na \textit{Stanford Background} skupu za učenje korištena je arhitektura mreže opisana u poglavlju \ref{chap:net_architecture}. Slike su prije ulaza u mrežu pretvorene iz RGB spektra u YUV spektar, zatim su napravljene 3 razine Laplaceove piramide (jedna razina piramide za jednu razinu mreže) i vrijednosti svakog kanala su normalizirane na raspon $\left[ 0, 1 \right]$.
 
 Prvi konvolucijski sloj transformira 3 ulazna kanala (YUV) u 16 izlaznih mapa značajki: 10 mapa značajki je spojeno isključivo na Y kanal, a preostalih 6 na U i V kanale. Drugi konvolucijski sloj transformira 16 mapa u 64 mape značajki, a treći te 64 mape u konačnih 256 mapa. Budući da postoje 3 razine, svaka daje 256 mapa značajki, što znači da je svaki piksel opisan sa $256 \cdot 3 = 768$ značajki. Svaka razina ima dva sloja sažimanja, tako da od ulazne slike dimenzija 320 x 240 na izlazu zadnjeg konvolucijskog sloja prve razine dobijemu mape značajki dimenzija 80 x 60, odnosno 40 x 30 i 20 x 15 za drugu i treću razinu. Izlazi druge i treće razine su naduzorkuju da bi se dobio 768 mapa značajki dimenzija 80 x 60. Semantičke oznake dobivene mrežom se onda moraju povećati do prave dimenzionalnosti označene slike iz skupa za učenje i usporediti.
 
-U drugoj fazi učenja se dodaje potpuno povezani sloj sa 1000 neurona, \textit{dropout} sloj (p=0.5) i sloj multinomijalne regresije sa 9 izlaza, što rezultate obično poboljša za jedan do dva posto (naspram multinomijalne regresije izravno spojene na detektor značajki). Prosječno vrijeme učenja mreže je oko 4 sata. Od gradijentnih metoda koristi se Rmsprop sa početnom stopom učenja $2 \cdot 10^{-4}$.
+U drugoj fazi učenja se dodaje potpuno povezani sloj sa 1000 neurona, \textit{dropout} sloj (sa $p=0.5$) i sloj multinomijalne regresije sa 9 izlaza, što rezultate obično poboljša za jedan do dva posto (naspram multinomijalne regresije izravno spojene na detektor značajki). Prosječno vrijeme učenja mreže je oko 4 sata. Od gradijentnih metoda koristi se Rmsprop sa početnom stopom učenja $2 \cdot 10^{-4}$, a u prvoj fazi koristi se i $L_2$ regularizacija s faktorom $10^{-5}$.
 
-Mreža opisana u ovom radu u jednom prolazu segmentira cijelu sliku. Sa stajališta brzine i memorije to je odlično, ali problem predstavljaju nebalansirani skupovi podatka. U takvoj arhitekturi nije moguće balasirati skupove podataka poduzorkovanjem ili naduzorkovanjem tako da predstavnika svih razreda bude podjenako. Zato je mreža je evaluirana s dvije različite funkcije troška: s običnom funkcijom negativne log izglednosti i Bayesovom funkcijom log izglednosti\cite{daylac} koja povećava trošak (a time i iznos gradijenata) slabo zastupljenih razreda. Bayesovska negativna log izglednost je definirana formulom:
+Mreža opisana u ovom radu u jednom prolazu segmentira cijelu sliku. Sa stajališta brzine i memorije to je odlično, ali problem predstavljaju nebalansirani skupovi podatka. U takvoj arhitekturi nije moguće balasirati skupove podataka poduzorkovanjem ili naduzorkovanjem tako da predstavnika svih razreda bude podjenako. Zato je mreža je evaluirana s dvije različite funkcije troška: s običnom funkcijom negativne log izglednosti i Bayesovom funkcijom log izglednosti\cite{daylac} koja povećava trošak (a time i iznos gradijenata) slabo zastupljenih razreda. Bayesova negativna log izglednost je definirana formulom:
 \begin{equation}
   bayesian\_nll = - \frac{1}{N} \sum_{i=1}^{N} \ln P(Y_i = c_i) \cdot \frac{1}{P_apr(c_i)}
 \end{equation}
-gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$ je razred u koju i-ti primjer pripada, $P_apr(c_i)$ je apriorna vjerojatnost $i$-tog razreda.
+gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$ je razred u koji $i$-ti primjer pripada, $P_apr(c_i)$ je apriorna vjerojatnost $i$-tog razreda.
 
 \begin{table}
 \centering
@@ -1046,6 +1047,10 @@ gdje je $P(Y = c_i)$ vjerojatnost da $i$-ti primjer pripada razredu $c_i$, $c_i$
 
 Slučajno je odabrano je 15\% slika koje se koriste kao skup za testiranje, na kojima su dobiveni prikazani rezultati. Tijekom učenja 10\% slika je izuzeto iz procesa učenja i korišteno kao skup za provjeru  kako bi se odredio trenutak zaustavljanja.
 
+Mreža je testirana koristeći 5 preklopa na skupu podataka \engl{5-folded cross validation}, a 10\% slika je izuzeto iz procesa učenja i korišteno kao skup za provjeru\engl{validation set} te kako bi se odredio trenutak zaustavljanja.
+
+Slika \ref{fig:iccv_train} prikazuje vrijednost funkcije troška i pogreške na skupu za provjeru tijekom učenja. Kao funkcija troška korištena je funkcija negativne log izglednosti. Nagli skok pred kraj učenja je trenutak početka druge faze učenja.
+
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{imgs/cost-iccv.png}
@@ -1060,7 +1065,7 @@ I na ovom skupu podataka korištena je arhitektura opisana u poglavlju \ref{chap
 Isprobana je varijanta mreže gdje se koriste samo RGB slike (transformirane u YUV i Laplaceovu piramidu) i varijanta gdje se koristi i dubinska mapa. U mreži koja koristi samo RGB kanale prvi konvolucijski sloj ima 16 filtera (10 spojeno na Y komponentu, 6 na UV komponente), drugi ima 64 filtera, a treći ima 256 filtera.
 Mreža koja koristi i dubinsku informaciju ima jednak raspored filtera, osim što su u prvom sloju svi filteri spojeni na svaki od četiri RGBD kanala.
 
-I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj fazi dodaje se potpuno povezani sloj od 1000 neurona i \textit{dropout} sloj.
+I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj fazi dodaje se potpuno povezani sloj od 1000 neurona i \textit{dropout} sloj. Tijekom prve faze koristi se i $L_2$ regularizacija s faktorom $10^{-5}$.
 
 \begin{table}
 \centering
@@ -1088,7 +1093,7 @@ I na ovom skupu za učenje korištena je metoda učenja u dvije faze. U drugoj f
 \caption{Rezultati na KITTI skupu podataka}
 \end{table}
 
-Slika \ref{fig:kitti_train} prikazuje vrijednost funkcije troška na skupovima za učenje i provjeru te grešku na skupu za provjeru tijekom učenja. Korištena je verzija mreže koja uzima u obzir i dubinske podatke. Vidljivo je da je učenje trajalo stotinjak epoha. Nagli skok pred kraj učenja je završetak prve faze učenja i početak druge faze.
+Slika \ref{fig:kitti_train} prikazuje vrijednost funkcije troška na skupovima za učenje i provjeru te grešku na skupu za provjeru tijekom učenja. Korištena je verzija mreže koja uzima u obzir i dubinske podatke. Vidljivo je da je učenje trajalo sedamdesetak epoha. Nagli skok pred kraj učenja je završetak prve faze učenja i početak druge faze.
 
 \begin{figure}[htb]
   \centering
@@ -1113,10 +1118,31 @@ Daljnjim razvojem područja konvolucijskih neuronskih mreža, ali i samog sklopo
 \bibliographystyle{fer}
 
 \appendix
-\chapter{Konfiguracijska datoteka}
+
+\chapter{Detalji implementacije}
+\section{Primjer koda u Theanu}
+
+\begin{lstlisting}[language=python]
+>>> import theano
+>>> a = theano.tensor.vector()
+>>> a
+  <TensorType(float32, vector)>
+>>> out = a + a ** 10
+>>> out
+  Elemwise{add,no_inplace}.0
+>>> f = theano.function([a], out)   # compile
+>>> print f([0, 1, 2])
+  array([0, 2, 1026])
+\end{lstlisting}
+Naveden je primjer koda u \textit{Theanu} kako bi se lakše pojmio način rada s njime. Prvo se definira simbolička varijabla \texttt{a} koja predstavlja vektor, što znači da će \textit{Theano} tijekom izvođenja očekivati da njezina vrijednost bude vektor brojeva. Ovisno o vrsti simboličke varijable, \textit{Theano} koristi drugačije vrste operatora i drugačije optimira kod. Osim toga, \textit{Theano} očekuje da će brojevi u vektoru biti u formatu \textit{float32}. Kod kreiranja simboličke varijable, moguće je odabrati i neki drugi tip (\textit{int8}, \textit{int32}, \textit{float64}, ...). Varijabla \texttt{out} definira se kao simbolički izraz koji sadrži operator +. \textit{Python} to vidi kao \textit{Theano} \textit{Elemwise} objekt. Na kraju se stvara funkcija \texttt{f} čiji je ulaz simbolička varijabla \texttt{a}, a izlaz je simbolička varijabla \texttt{out} (koja ovisi o \texttt{a}).
+
+Izvođenje naredbe koja stvara funkciju obično traje nekoliko sekundi. Razlog tome je što \textit{Theano} u tom trenutku krene optimirati simboličko stablo izvođenja funkcije, zatim odabere vrstu izvršnog koda (C++ ili CUDA) i na kraju prevodi graf u izvršni kod. Kad se nakon toga pozove funkcija \texttt{f}, ta funkcija se zapravo izvršava u tom prevednom i optimiranom C++ ili CUDA kodu.
+
+
+\section{Konfiguracijska datoteka}
 \label{chap:konfiguracijska datoteka}
 
-Primjer konfiguracijske datoteke (JSON format).
+Primjer konfiguracijske datoteke za učenje mreže, u JSON formatu.
 \begin{lstlisting}[language=json]
 {
     "evaluation": {
@@ -1160,18 +1186,40 @@ Primjer konfiguracijske datoteke (JSON format).
 \end{lstlisting}
 \texttt{"tranining"} označava prvu fazu učenja (učenje generatora značajki), \texttt{"training2"} označava drugu fazu učenja (učenje klasifikatora). \texttt{"epochs": -1} označava da je broj epoha neograničen.
 
-\chapter{Implementacija}
-\section{Primjer koda u Theanu}
+\chapter{Slike rezultata}
+Prikazano je nekoliko primjera rada programa, na primjerima iz skupova za testiranje. Slika gore desno je originalna slika, slika gore desno je slika iz skupa za učenje označena semantičkim oznakama, slika dolje lijevo su oznake dobivene iz mreže, a dolje desno su oznake zaglađene \textit{superpixel} metodom.
 
-Osnovni primjer koda u Theanu i objasnjenje logike
+\section{Stanford Background}
+Primjeri su dobiveni mrežom koja je učena funkcijom negativne log izglednosti.
 
-\section{Razvijena radna okolina}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/iccv-sampl2.png}
+  \caption{Rezultati na Stanford Background skupu podataka}
+\end{figure}
 
-Popis funkcija i sto one rade.
-Funkcija 1
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/iccv-sampl3.png}
+  \caption{Rezultati na Stanford Background skupu podataka}
+\end{figure}
 
-Funkcija 2
+\section{KITTI}
+Primjeri su dobiveni mrežom koja je učena na RGBD podacima, a kao funkcija troška korištena je funkcija negativne log izglednosti.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/kitti3.png}
+  \caption{Rezultati na KITTI skupu podataka}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/kitti4.png}
+  \caption{Rezultati na KITTI skupu podataka}
+\end{figure}
+
+\newpage
 
 \begin{sazetak}
 U ovom radu opisane su duboke neuronske mreže, s posebnim naglaskom na konvolucijske neuronske mreže. Detaljno su obrađene metode i postupci koji se koriste kod učenja konvolucijskih neuronskih mreža. Implementirana je konvolucijska mreža za semantičku segmentaciju u Theano radnoj okolini i isprobana na dva skupa podataka: Stanford Background skupu podatka koji za ulaz ima RGB slike i na KITTI skupu podataka koji na ulazu ima RGB-D slike. Na kraju su prikazani dobiveni rezultati, s opisima i slikama.
