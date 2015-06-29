@@ -49,7 +49,7 @@ def main(path):
     ax1.plot([np.argmin(val)], [np.min(val)], 'ro')
     ax1.set_xlabel('epochs')
     ax1.set_ylabel('cost')
-    ax1.legend(loc='best')
+    ax1.legend(loc=1)
 
     ax2 = ax1.twinx()
     ax2.plot(val_error, 'r', label='validation error')
@@ -58,6 +58,7 @@ def main(path):
     ax2.set_ylabel('validation error', color='r')
     for tl in ax2.get_yticklabels():
             tl.set_color('r')
+    ax2.legend(loc=2)
     plt.show()
 
 
