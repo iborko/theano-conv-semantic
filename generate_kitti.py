@@ -12,7 +12,7 @@ import pylab
 import os
 import multiprocessing as mp
 
-from preprocessing.transform_in import yuv_laplacian_norm, resize
+from preprocessing.transform_in import yuv_laplacian_norm, resize, calc_hog
 from preprocessing.transform_out import process_out
 from preprocessing.class_counter import ClassCounter
 from dataset.loader_kitti import load_dataset
@@ -32,10 +32,37 @@ def save_result_img(result_list, result):
 
 
 def gen_layers_for_image(i, img):
+    """
+    Generate laplacian pyramids and normalize every channel of every
+    pyramid.
+    """
     img = resize(img[:, :, :], requested_shape)
 
     new_imgs = yuv_laplacian_norm(img, requested_shape, 3)
 
+    return i, new_imgs
+
+
+def gen_layers_for_image_hog(i, img):
+    """
+    Generate laplacian pyramids and normalize every channel of every
+    pyramid of RGB.
+    Calc HOG of depth at every scale.
+    """
+    img = resize(img[:, :, :], requested_shape)
+
+    rgb_img = img[:, :, 0:3]
+    depth_img = img[:, :, 3]
+    # transform
+    rgb_imgs = yuv_laplacian_norm(rgb_img, requested_shape, n_layers=3)
+    depth_img = calc_hog(depth_img)
+
+    new_imgs = []
+    for img in rgb_imgs:
+        shp = (img.shape[1], img.shape[2])
+        new_img = np.concatenate(
+            (img, resize(depth_img, shp).reshape((1, shp[0], shp[1]))), axis=0)
+        new_imgs.append(new_img)
     return i, new_imgs
 
 
@@ -263,4 +290,4 @@ if __name__ == "__main__":
     if conf is None:
         exit(1)
 
-    main(conf, gen_layers_for_image, n_layers=3, show=show)
+    main(conf, gen_layers_for_image_hog, n_layers=3, show=show)

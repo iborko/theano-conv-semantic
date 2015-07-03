@@ -89,7 +89,7 @@ class LogisticRegression(object):
         # parameters of the model
         self.params = [self.W, self.b]
 
-    def negative_log_likelihood(self, y):
+    def negative_log_likelihood(self, y, p_c, care_classes):
         """Return the mean of the negative log-likelihood of the prediction
         of this model under a given target distribution.
 
@@ -117,7 +117,12 @@ class LogisticRegression(object):
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x[T.arange(y.shape[0]), y]))
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        if care_classes is not None:
+            p_correct_classes = T.set_subtensor(
+                p_correct_classes[T.eq(care_classes[y], 0).nonzero()],
+                T.cast(1.0, 'float32'))
+        return -T.mean(T.log(p_correct_classes))
 
     def boost_negative_log_likelihood(self, y, alpha):
         """

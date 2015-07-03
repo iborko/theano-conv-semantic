@@ -27,6 +27,15 @@ def resize(img, out_shape, inter=1):
     return ret_img
 
 
+def calc_hog(img):
+    """
+    Calculate HOG descriptors of and image
+    """
+    hog = cv2.HOGDescriptor()
+    img_hog = hog.compute(img)
+    return img_hog
+
+
 def get_laplacian_pyramid_layer(img, n):
     '''Returns the n-th layer of the laplacian pyramid'''
     currImg, i = img, 0
