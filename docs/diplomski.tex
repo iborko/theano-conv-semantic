@@ -5,6 +5,7 @@
 \usepackage{bchart}
 \usepackage{adjustbox}
 \usepackage{float}
+\usepackage{pdfpages}
 
 \usepackage{xcolor}
 
@@ -61,10 +62,17 @@
 \maketitle
 
 % Ispis stranice s napomenom o umetanju izvornika rada. Uklonite naredbu \izvornik ako želite izbaciti tu stranicu.
-\izvornik
+% \izvornik
+\includepdf[pages={1}]{sken.pdf}
 
 % Dodavanje zahvale ili prazne stranice. Ako ne želite dodati zahvalu, naredbu ostavite radi prazne stranice.
-\zahvala{}
+\zahvala{
+
+Zahvaljujem se mentoru, prof. dr. sc. Siniši Šegviću za stručno i uspješno vodstvo kroz diplomski studij, od diplomskog seminara do diplomskog rada, a posebice za sve savjete oko ovog rada i njegove programske implementacije.
+
+Zahvaljujem se i dr. sc. Josipu Krapcu za pružene savjete i znanje koje mi je približio, kao i Ivanu Kreši, mag. ing. za savjete i pomoć oko obrade podataka.
+
+}
 
 \tableofcontents
 
@@ -75,18 +83,18 @@ Razumijevanje scene osnovni je problem mnogih segmenata računalnog vida. Jedan 
 Razumijevanje scene bitan je dio mnogih autonomnih robotiziranih sustava koji čine interakcije s okolinom.
 Primjer su autonomni automobili koji su u zadnje vrijeme postigli veliki razvojni napredak pa često svjedočimo reportažama o vožnjama ili pak testovima novih prototipova. Takvi automobili koriste sustave za razumijevanje scene kako bi pratili cestu kojom voze, pratili druge sudionike u prometu i mogli izbjeći potencijalne nesreće.
 
-Ovaj rad opisuje sustav za semantičku segmentaciju koji koristi već segmentirane scene za "učenje" svojih parametara. Arhitektura sustava se temelji na dubokim neuronskim mrežama, konkretno konvolucijskim neuronskim mrežama. Sustavi temeljeni na konvolucijskim mrežama postižu najbolje rezultate \engl{state-of-the-art} u mnogim zadacima računalnog vida poput klasifikacije (\cite{krizhevsky_imagenet}, \cite{googlenet}, \cite{vgg_net}, \cite{overfeat}), detekcije objekata (\cite{girshick2014rcnn}), fine kategorizacije \engl{fine grained categorization}(\cite{zhang14finegrained}) i semantičke segmentacije (\cite{farabet_pami}, \cite{long_shelhamer}, \cite{ChenPKMY14}).
+Ovaj rad opisuje sustav za semantičku segmentaciju koji koristi već segmentirane scene za "učenje" svojih parametara. Arhitektura sustava se temelji na dubokim neuronskim mrežama, konkretno konvolucijskim neuronskim mrežama. Sustavi temeljeni na konvolucijskim mrežama postižu najbolje rezultate \engl{state-of-the-art} u mnogim zadacima računalnog vida poput klasifikacije (\cite{krizhevsky_imagenet}, \cite{googlenet}, \cite{vgg_net}, \cite{overfeat}), detekcije objekata (\cite{girshick2014rcnn}), fine kategorizacije \engl{fine grained categorization}\cite{zhang14finegrained} i semantičke segmentacije (\cite{farabet_pami}, \cite{long_shelhamer}, \cite{ChenPKMY14}).
 
 Do prije četiri godine godine konvolucijske mreže nisu bile glavni alat za semantičku segmentaciju. Tada su se uglavnom koristile razne metode temeljene na grafovima i grupiranju piksela u skupine. U takvim postupcima često se za svaku regiju koja predstavlja okolinu piksela računaju HOG \engl{histogram of gradients} ili SIFT \engl{scale invariant feature transform} opisnici \cite{Lowe:1999}. Ti opisnici predstavljaju značajku te regije i ulaze u klasifikator koji ih zatim klasificira i grupira.
 Kod korištenja klasifikatora temeljenih na stablima odluka opet se učenjem parametara minimizira funkcija gubitka. Parametri stabla su parametri podjele podataka u svakom čvoru \engl{decision stump parameters} i oni se kod stabala uče uzorkovanjem, budući da je podjela podataka nederivabilna funkcija.
 
-U drugom su poglavlju opisane neuronske mreže: od njihove prve ideje, kroz razvoj perceptrona i logističke regresije sve do današnjih dubokih neuronskih mreža, posebice konvolucijskih neuronskih mreža. U trećem poglavlju opisane su metode učenja neuronskih mreža: metode gradijentnog spusta i vrste regularizacija. Četvrto poglavlje opisuje pojam semantičke segmentacija i korištene skupove podataka. U petom se poglavlju opisuju detalji programske implementacije konvolucijske neuronske mreže iz ovog rad, a šestom su opisani rezultati koje je implementirana mreža postigla. U sedmom je poglavlju dan zaključak rada.
+U sljedećem su poglavlju ovog rada opisane neuronske mreže: od njihove prve ideje, kroz razvoj perceptrona i logističke regresije sve do današnjih dubokih neuronskih mreža, posebice konvolucijskih neuronskih mreža. U trećem poglavlju opisane su metode učenja neuronskih mreža: metode gradijentnog spusta i vrste regularizacija. Četvrto poglavlje opisuje pojam semantičke segmentacija i korištene skupove podataka. U petom se poglavlju opisuju detalji programske implementacije konvolucijske neuronske mreže iz ovog rad, a šestom su opisani rezultati koje je implementirana mreža postigla. U sedmom je poglavlju dan zaključak rada.
 
 \chapter{Neuronske mreže}
 
 Umjetne neuronske mreže \engl{artificial neural networks} ili skraćeno neuronske mreže su paradigma koja opisuje procesiranje informacija inspirirano načinom na koji ljudski mozak (promatran samo kao skup neurona) procesira informacije, odnosno električne impulse. Glavna odlika neuronske mreže je procesiranje informacija jednostavnim elementima (neuronima) koji omogućavaju visoku razinu paralelizma. Ti jednostavni elementi su međusobno povezani velikim brojem veza (u biološkom sustavu te veze su sinapse). Učenje neuronskog biološkog sustava podrazumijeva podešavanje sinapsi, a slično tome se podešavaju parametri u umjetnoj neuronskoj mreži.
 
-Osnovni element umjetne neuronske mreže je umjetni neuron. Prvi umjetni neuron, nazvan perceptron, razvio je Frank Rosenblatt 1950-ih inspiriran ranijim radom \cite{mcculloch43a}  Warrena  McCullocha i Waltera Pittsa iz 1943. o njihovom viđenju umjetnog neurona. Taj početni entuzijazam nije predugo trajao jer Minsky i Papert 1969. godine objavljuju knjigu \cite{minsky69perceptrons} u kojoj navode mane neuronskih mreža i daju pesimističan pogled na neuronske mreže. Tada većina znanstenika prestaje s istraživanjima na tome polju i razvoj ostaje na par znanstvenika koji su trebali dokazati mogućnosti neuronskih mreža.
+Osnovni element umjetne neuronske mreže je umjetni neuron. Prvi umjetni neuron, nazvan perceptron, razvio je Frank Rosenblatt 1950-ih inspiriran ranijim radom \cite{mcculloch43a}  Warrena  McCullocha i Waltera Pittsa iz 1943. o njihovom viđenju umjetnog neurona. Taj početni entuzijazam nije predugo trajao jer Minsky i Papert 1969. godine objavljuju knjigu \cite{minsky69perceptrons} u kojoj navode mane neuronskih mreža i daju pesimističan pogled na neuronske mreže. Tada većina znanstvenika prestaje s istraživanjima na tome polju i razvoj ostaje na par znanstvenika koji su trebali dokazati mogućnosti neuronskih mreža.
 
 \begin{figure}[htb]
 \centering
@@ -110,16 +118,16 @@ Učenje takvog modela se zapravo svodi na podešavanje težina $w_j$ i praga, č
 
 Današnji umjetni neuron koji se koristi u neuronskim mrežama se malo razlikuje od originalne ideje perceptrona po tome što ne koristi step funkciju na izlazu, već neku funckciju iz porodice sigmoidalnih funkcija (neki autori takav neuron nazivaju logistički neuron ili logistički perceptron).
 
-No, nije samo rad Minskog i Paperta kočio razvoj neuronskih mreža: računalna snaga je tada bila veliko ograničenje. Zato su se proučavali tek jednostavni modeli, koji nisu imali dovoljnu moć. Prava moć dolazi tek kada se više perceptrona spoji zajedno kroz više slojeva (vidi poglavlje \ref{chap:viseslojni_perceptron}). Tijekom 80-ih godina dolazi do razvoja računalnog paralelizma i povećanja računalne snage čime rastu mogućnosti za treniranje i evaluacije kompleksnijih neuronskih mreža.
+No, nije samo rad Minskog i Paperta kočio razvoj neuronskih mreža: računalna snaga je tada bila veliko ograničenje. Zato su se proučavali tek jednostavniji modeli, koji nisu imali dovoljnu moć. Prava moć dolazi tek kada se više perceptrona spoji zajedno kroz više slojeva (vidi poglavlje \ref{chap:viseslojni_perceptron}). Tijekom 80-ih godina dolazi do razvoja računalnog paralelizma i povećanja računalne snage čime rastu mogućnosti za treniranje i evaluacije kompleksnijih neuronskih mreža.
 
-Značajan napredak postigao je i Werbos 1975. godine kada je u svojem radu \cite{Werbos:74} primjenio algoritam unazadne propagacije \engl{backpropagation} za učenje neuronskih mreža (vidi poglavlje Backgropagation).
+Značajan napredak postigao je i Werbos 1975. godine kada je u svojem radu \cite{Werbos:74} primjenio algoritam unazadne propagacije \engl{backpropagation} za učenje neuronskih mreža (vidi poglavlje \ref{chap:backpropagation}).
 Često se taj trenutak naziva i renesansom neuronskim mreža jer opisani postupak omogućava lako treniranje neuronskih mreža neovisno o njihovoj složenosti i arhitekturi.
 
 Za to vrijeme snažno su se razvijali drugi algoritmi strojnog učenja. Stroj s potpornim vektorima \engl{support vector machine}, ili kraće SVM, tako postaje moćniji i zastupljeniji klasifikator od neuronskih mreža. Tek zadnjih 10-ak godina duboke neuronske mreža polako preuzimaju primat SVM-a zbog dolaska GPGPU \engl{general purpose graphics processsing unit} jedinica koje su sposobne izvršavati velike količine paraleliziranih matričnih operacija potrebnih za treniranje dubokih mreža.
 
 \section{Klasifikacija i regresija}
 Dva temeljna problema prediktivnih sustava su klasifikacija i regresija.
-Klasifikacija je razvrstavanje ulaznih podatka u jedan od $K$ razreda. Ako je $K = 2$ onda govorimo o binarnoj klasifikaciji. Kod neuronskih mreža se to može ostvariti postavljanjem step funkcije na na kraj zadnjeg neurona čime izlaz postaje 0 ili 1.
+Klasifikacija je razvrstavanje ulaznih podatka u jedan od $K$ razreda. Ako je $K = 2$ onda govorimo o binarnoj klasifikaciji. Kod neuronskih mreža se to može ostvariti postavljanjem step funkcije na kraj zadnjeg neurona čime izlaz postaje 0 ili 1.
 Ako je $K > 2$ onda pak govorimo o višeklasnoj \engl{multiclass} klasifikaciji. Postoji još i verzija klasifikacije s više klasa koja svakom primjeru pridjeljuje podskup dogovorenog skupa klasa \engl{multi-label classification}, odnosno jedan primjer može spadati u više klasa.
 Za razliku od klasifikacije, regresija daje realni broj kao izlaz. Cilj je da realni izlaz bude čim sličniji traženom izrazu.
 
@@ -243,7 +251,7 @@ Izlaz višeslojnog perceptrona je tada:
 f(\boldsymbol{x}) = G\{\boldsymbol{W}(2) \cdot (s[\boldsymbol{W}(1) \cdot \boldsymbol{x} + \boldsymbol{b}(1))] + \boldsymbol{b}(2)\}
 \label{eq:conv}
 \end{equation}
-$G$ i $s$ su aktivacijske funkcije. Za aktivacijsku funkciju se obično odabire logistička sigmoid funkcija ili $\tanh$. $\tanh$ se odabire jer se višeslojna mreža s njime kao prijenosnom funkcijom brže trenira.
+$G$ i $s$ su aktivacijske funkcije. Za aktivacijsku funkciju se obično odabire logistička sigmoid funkcija ili $\tanh$. $\tanh$ se odabire jer se višeslojna mreža s njime u ulozi aktivacijske funkcije brže trenira.
 Jednadžba se može protumačiti na način da se izlaz skrivenog sloja $h(\boldsymbol{x}) = s( \boldsymbol{W}(1) * \boldsymbol{x} + \boldsymbol{b} )$ prosljeđuje na ulaz logističke regresije, čime dobijemo višeslojni perceptron.
 
 \section{Duboke neuronske mreže}
@@ -289,7 +297,7 @@ Duboke neuronske mreže koje sadrže konvolucijske slojeve (pojašnjeni u sljede
 
 \subsection{Konvolucijski sloj}
 
-U zadacima računalnog vida posebno se osjeti rast parametara s dubinom i širinom mreže jer se na ulazu nalaze slike, dimenzija često preko 100x100 piksela (relativno mala slika), što daje 10 000 značajki na ulazu i čini ulazni prostor visoko dimenzionalnim. Uzmimo za primjer mrežu sa 10 000 ulaznih neurona i 1000 skrivenih neurona. Takav prvi sloj ima već 10 milijuna težina, a slaganjem mreže u dubinu se taj broj još povećava, mreža se teško i sporo trenira te je sklona prenaučenosti. Konvolucijski slojevi, u usporedbi sa potpuno povezanim slojevima imaju višestruko manji broj parametara.
+U zadacima računalnog vida posebno se osjeti rast parametara s dubinom i širinom mreže jer se na ulazu nalaze slike, dimenzija često preko 100x100 piksela (relativno mala slika), što daje 10 000 značajki na ulazu i čini ulazni prostor visoko dimenzionalnim. Uzmimo za primjer mrežu sa 10 000 ulaznih neurona i 1000 skrivenih neurona. Takav prvi sloj ima već 10 milijuna težina, a slaganjem mreže u dubinu se taj broj još povećava, mreža se teško i sporo trenira te je sklona prenaučenosti. Konvolucijski slojevi, u usporedbi sa potpuno povezanim slojevima, imaju višestruko manji broj parametara.
 
 Znanstveni radovi temeljeni na vidnom korteksu \engl{visual cortex} mačaka pokazali su da postoji složeni raspored vidnih stanica u oku. Neke od tih stanica osjetljive su na samo malu podregiju vidnog polja nazvanu osjetilno polje \engl{receptive field}. Takve su stanice raspoređene da pokrivaju cijelo vidno polje. Dodatno, identificirana su dva tipa stanica: jednostavne stanice i kompleksne stanice. Jednostavne maksimalno reagiraju na podražajne oblike s izraženim bridovima dok složene imaju veća osjetilna područja i invarijantne su na točnu poziciju podražaja.
 
@@ -446,7 +454,7 @@ U početnim se slojevima mreže izmjenjuju slojevi sažimanja maksimalnog odziva
 
 Rješenje za optimalne parametre neuronskih mreža nije dostupno u zatvorenoj formi pa se poseže za gradijentnim metodama koje onda kroz iteracije pronalaze optimalne parametre. To znači da nam je potrebna ciljna funkcija, funkcija čiji rezultat nam govori koliko su parametri modela dobri.
 
-Kod klasifikacije slika ulaz u klasifikator je slika, a izlaz je oznaka klase u koju slika pripada. Kod semantičke segmentacije ulaz u klasfikator je opet, ali je izlaz skup oznaka: svaki piksel (ili eventulano grupa piksela) se klasificira pa i svaki ima svoju oznaku. Tako se semantička segmentacija naposljetku zapravo sastoji od višestrukih klasifikacija piksela pa možemo koristiti funkcije gubitka koje koristimo i kod obične klasifikacije.
+Kod klasifikacije slika ulaz u klasifikator je slika, a izlaz je oznaka klase u koju slika pripada. Kod semantičke segmentacije ulaz u klasfikator je opet slika, ali je izlaz skup oznaka: svaki piksel (ili eventulano grupa piksela) se klasificira pa i svaki ima svoju oznaku. Tako se semantička segmentacija naposljetku zapravo sastoji od višestrukih klasifikacija piksela pa možemo koristiti funkcije gubitka koje koristimo i kod obične klasifikacije.
 
 Najjednostavnija funkcija gubitka je jedan-nula funkcija gubitka. Ako model preslikava ulazni primjer u jedan od razreda iz skupa ${0, ..., L}$, definirajmo takvo preslikvanje funkcijom f $f: R^D \rightarrow {0, ..., L}$, onda se funkcija gubitka može definirati kao:
 \begin{equation}
@@ -470,8 +478,9 @@ NLL(\theta, \mathcal{D}) = - \sum_{i = 0}^{\abs{\mathcal{D}}} \log P(Y = y^{(i)}
 
 
 \section{Algoritam unazadne propagacije, \emph{engl. backpropagation}}
+\label{chap:backpropagation}
 
-Algoritmom unazadne propagacije izvode se izrazi za gradijente (iznose derivacija) parametara mreže. Ti se izrazi kasnije koriste u algoritmu gradijentnog spusta za ugađanje parametara.
+Algoritmom unazadne propagacije izvode se izrazi za gradijente (iznosi derivacija) parametara mreže. Ti se izrazi kasnije koriste u algoritmu gradijentnog spusta za ugađanje parametara.
 
 Algoritam unazadne propagacije prvi je put predstavljen 1970-ih, ali popularnost i prihvaćanje je stekao tek 1986. kad je Hinton izdao poznati rad koji opisuje nekoliko tada poznatih tipova neuronskih mreža i njihovo učenje unazadnom propagacijom koje je bilo brže od prije korištenih metoda učenja i omogućavalo rješavanje problema, koji su do tada bili nerješivi, uz pomoć neuronskih mreža. Do danas je ta metoda učenja postala najproučavanija i nakorištenija.
 
@@ -595,6 +604,7 @@ Vidi se da su izrazi za $\frac{\partial E}{\partial W^{(l)}}$ jednaki:
     = \frac{-1}{N} \sum_{n=1}^{N} \delta_n^{(k)} \boldsymbol{x}_n^{(k-1)}
 \end{equation}
 gdje je $k$ ili skriveni ili izlazni sloj. Drugačiji je samo način na koji se računa $\delta^{(k)}$. Za zadnji sloj se koristi izraz \ref{eq:delta_lastlayer}, dok se za skriveni sloj koristi izraz \ref{eq:delta_hiddenlayer} koji koristi već izračunati $\delta_n$ idućeg sloja. Upravo se zato algoritam naziva ''algoritam unazadne propagacije'' jer se kreće od zadnjeg (izlaznog sloja) i pogreška, odnosno podešavanje težina, se propagira prema prvom (ulaznom) sloju.
+Sličan se postupak može provesti i za određivanje derivacije pomaka $\frac{\partial E}{\partial \boldsymbol{b}^{(k)}}$.
 
 \section{Gradijentni spust}
 
@@ -605,7 +615,7 @@ Neka je $f(x)$ funkcija čiji minimum tražimo, $A$ trenutna točka, $t$ je tren
 \begin{equation}
   A(t) = A(t-1) - \eta f' \left[ A(t-1) \right]
 \end{equation}
-ili za funkciju $F$ s više parametara:
+ili za funkciju $F$ s više argumenata:
 \begin{equation}
   \boldsymbol{A}_i(t) = \boldsymbol{A}_i(t-1) - \eta \frac{\partial F}{\partial \boldsymbol{A}_i} \left[ \boldsymbol{A}_i(t-1) \right]
 \end{equation}
@@ -641,21 +651,26 @@ No, postoje funkcije kod kojih izračuvanje sume u gradijentu zahtijeva dugotraj
 \end{equation}
 Prolazom algoritma kroz skup za treniranje izvodi se gornje podešavanje težina za svaki primjer. Potrebno je nekoliko prolaza kroz skup za treniranje dok algoritam ne konvergira. Tipične implementacije još i promješaju skup za učenje prije svakog prolaza.
 
-Ako je skup podataka velik i jako redundantan, gradijent na prvoj polovici skupa je skoro identičan gradijentu na drugoj polovici skupa. Umjesto računanja gradijenata za cijeli skup podataka, težine mreže se mogu ugoditi nakon računanja gradijenata za svaku polovicu skupa. Ako dijeljnjem skupa podataka odemo u krajnost, dolazimo do stohastičkog gradijentnog spusta (nazivan još i \emph{online} učenje) gdje se težine ugađaju nakon svakog primjera iz skupa za učenje, čime se konvergencija ubrzava jer nije potrebno računati gradijent svih uzoraka da bi došlo do ugađanja težina.
+Ako je skup podataka velik i jako redundantan, gradijent na prvoj polovici skupa je skoro identičan gradijentu na drugoj polovici skupa. Umjesto računanja gradijenata za cijeli skup podataka, težine mreže se mogu ugoditi nakon računanja gradijenata za svaku polovicu skupa. Ako dijeljenjem skupa podataka odemo u krajnost, dolazimo do stohastičkog gradijentnog spusta (nazivan još i \emph{online} učenje) gdje se težine ugađaju nakon svakog primjera iz skupa za učenje, čime se konvergencija ubrzava jer nije potrebno računati gradijent svih uzoraka da bi došlo do ugađanja težina.
 
 Za većinu problema najboljim se pokazalo učenje korištenjem male serije skupa podataka \engl{mini-batch learning}. Budući da je ugađanje težina mreže računalno skupo, takva metoda učenje je brža od običnog stohastičkog gradijentnog spusta jer nema ugađanja težina nakon svakog primjera. Do ubrzavanja dolazi i jer se kod računanja gradijenata za seriju primjera koristi puno matričnog množenja koje je u današnjim arhitekturama računalnih sustava jako efikasno, pogotovo ako se koriste grafičke kartice.
 
-Važno je i napomenuti da računanje gradijenata na dijelu podataka (\textit{mini-batch} i stohastički gradijentni spust) svodi na aproksimaciju gradijenta cijelog skupa podataka, odnosno unosimo šum u račun gradijenata.
+Važno je i napomenuti da se računanje gradijenata na dijelu podataka (\textit{mini-batch} i stohastički gradijentni spust) svodi na aproksimaciju gradijenta cijelog skupa podataka, odnosno unosimo šum u račun gradijenata.
 Taj šum je koristan u optimizaciji jer pomaže da se postupak izvuče iz eventualnog lokalnog mimimuma u kojem zapeo. \textit{Mini-batch} učenje je zato dobar kompromis između memorijskih zahtjeva i brzine konvergencije.
 
 
 \subsection{\emph{Momentum} metoda}
 
-Za višeslojne neuronske mreže višedimenzionalna ravnina funkcije pogreške je kompliciranog oblika, ali se lokalno može aproksimirati kao kvadratna posuda. Njen vertikalni presjek je onda parabola, a horizontalni elipsa.
+Za višeslojne neuronske mreže višedimenzionalna ravnina funkcije troška je kompliciranog oblika, ali se lokalno može aproksimirati kao kvadratna zdjela \engl{quadratic bowl}. Njen vertikalni presjek je onda parabola, a horizontalni elipsa.
 
-(slika)
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\textwidth]{imgs/cost_img.png}
+\caption{Vertikalni i horizontalni presjek funkcije troška}
+\label{fig:quad_bowl}
+\end{figure}
 
-Uzmimo za primjer kretanje loptice na takvoj funkciji pogreške. Loptica će krenuti u smjeru lokalnog gradijenta, ali jednom kad nakupti brzinu ići će više u smjeru centra kvadratne posude nego u smjeru gradijenta. Njen moment će je natjerati da ide u smjeru ovisnom o prethodnom kretanju.
+Uzmimo za primjer kretanje loptice na takvoj funkciji troška. Loptica će krenuti u smjeru lokalnog gradijenta, ali jednom kad nakupti brzinu ići će više u smjeru centra kvadratne zdjele nego u smjeru gradijenta. Njen moment će je natjerati da ide u smjeru ovisnom o prethodnom kretanju.
 
 Slična je stvar i s \emph{momentum} metodom koja uzima u obzir gradijente prethodnih koraka i tako prigušuje oscilacije u promjeni smjera, a povećava brzinu u smjeru konzistentnih gradijenata.
 
@@ -669,18 +684,17 @@ Promjena težina je ekvivalentna trenutnoj brzini:
 \begin{split}
 	\Delta \boldsymbol{w}(t) &= \boldsymbol{v}(t) \\
 		&= \alpha \boldsymbol{v}(t-1) - \eta \frac{\partial E}{\partial \boldsymbol{w}}(t) \\
-		&= \alpha \boldsymbol{w}(t-1) - \eta \frac{\partial E}{\partial \boldsymbol{w}}(t)
 \end{split}
 \end{equation}
 
 \subsection{Resilient propagation (RProp)}
 
-Rprop metoda, poput stohastičkog gradijentnog spusta, koristi lokalne gradijente da bi ugodila parametre težina mreže. Razlika je da se za Rprop koristi samo predznak  derivacija, što znači da je veličina koraka neovisna o amplitudi gradijenta. Ova metoda se koristi samo kod ugađanja težina nakon svih viđenih primjera iz skupa za učenje \engl{full batch learning}.
+\textit{Rprop} metoda, poput stohastičkog gradijentnog spusta, koristi lokalne gradijente da bi ugodila parametre težina mreže. Razlika je da se za Rprop koristi samo predznak  derivacija, što znači da je veličina koraka neovisna o amplitudi gradijenta. Ova metoda se koristi samo kod ugađanja težina nakon svih viđenih primjera iz skupa za učenje \engl{full batch learning}.
 
-Postoji više varijanti RProp algoritma: RProp+, RProp-, iRPop+, iRPRop- (\cite{Igel00}).
+Postoji više varijanti \textit{RProp} algoritma: RProp+, RProp-, iRPop+, iRPRop- (\cite{Igel00}).
 Znak + ili - na kraju naziva označava prati li algoritam prethodnu promjenu težina $\Delta w_{ij}$ \engl{weight backtracking} -- ako prati, onda se promjenom smjera gradijenata poništava prethodna promjena težina. $i$ na početku naziva označava postupak gdje se kod promjene smjera gradijenata trenutna vrijednost postavlja na 0: $ako \ \frac{\partial E}{\partial w_{ij}}(t) * \frac{\partial E}{\partial w_{ij}}(t-1) < 0 \rightarrow \frac{\partial E}{\partial w_{ij}}(t) := 0$
 
-U nastavku će biti opisana iRProp- varijanta \cite{Igel00} koja se često koristi. Budući da promjena težina ne ovisi o iznosu gradijenta, definiraju se ''vrijednosti promjene'' za čiji iznos se podešavaju težine:
+U nastavku će biti opisana \textit{iRProp-} varijanta \cite{Igel00} koja se često koristi. Budući da promjena težina ne ovisi o iznosu gradijenta, definiraju se ''vrijednosti promjene'' za čiji iznos se podešavaju težine:
 \begin{equation}
   \Delta w_{ij}(t) =
     \left\{
@@ -708,7 +722,7 @@ gdje je $0 < \eta^{-} < 1 < \eta^{+}$. Često se u implementacijama koriste vrij
 
 Ili rječima: svaki put kada parcijalna derivacija neke težine promjeni predznak, što znači da je prošlo ugađanje težina bilo preveliko i preskočio se lokalni minimum, ''vrijednost promjene'' se smanji s faktorom $\eta^{-}$. Ako se predznak nije promijenio, ''vrijednost promjene'' se lagano uveća s faktorom $\eta^{+}$, tako da postupak akcelerira po plitkim područjima.
 
-Pojasnimo na primjeru zašto Rprop ne radi dobro kod stohastičkog gradijentog spusta (ugađanja težina nakon svakog primjera). Neka jedna težina mreže ima gradijent +0.1 na devet primjera i gradijent od -0.9 na jednom primjeru. Tada želimo da ta težina ostane otprilike ista, a Rprop će povećati težinu devet puta i smanjiti jednom za otprilike isti iznos.
+Pojasnimo na primjeru zašto \textit{Rprop} ne radi dobro kod stohastičkog gradijentog spusta (ugađanja težina nakon svakog primjera). Neka jedna težina mreže ima gradijent +0.1 na devet primjera i gradijent od -0.9 na jednom primjeru. Tada želimo da ta težina ostane otprilike ista, a Rprop će povećati težinu devet puta i smanjiti jednom za otprilike isti iznos.
 
 
 \subsection{RMS prop}
@@ -744,7 +758,7 @@ $L_1$ norma je suma apsolutnih iznosa kartezijevih komponenti vektora. Drugačij
 \norm{\boldsymbol{x}}_1 = \sum_{i = 1}^{n} \abs{x_i}
 \end{equation}
 
-$L_2$ norma je suma kvadrata komponenti vektora. Za neki vektor $\boldsymbol{x}$ se ona definira:
+$L_2$ norma je suma kvadrata komponenti vektora. Za neki vektor $\boldsymbol{x}$ se ona definira kao:
 \begin{equation}
 \norm{\boldsymbol{x}}_2 = \sum_{i = 1}^{n} {x_i}^2
 \end{equation}
@@ -762,7 +776,7 @@ gdje je
 \end{equation}
 $p$ je najčešće 1 ili 2, odnosno koristi se $L_1$ ili $L_2$ norma. $\lambda$ je regularizacijski faktor, jedan od hiperparametara mreže, koji se određuje eksperimentalno.
 
-\subsection{Slučajne transformacije ili Umjetno povećanje skupa za učenje}
+\subsection{Umjetno povećanje skupa za učenje}
 \label{chap:dataset_perturbations}
 
 Kod modela s velikim brojem parametara, kao što su duboke neuronske mreže, veličina skupa za učenje uvelike utječe na rezultate: što je veći skup za učenje, to su bolji rezultati na skupu za testiranje jer je bolja generalizacija modela. No, veličina skupa za učenje je uvijek ograničena. Kod semantičke segmentacije broj podataka je još više ograničen jer je sam postupak označavanja slika semantičkim oznakama dugotrajan pa time i skup.
@@ -812,7 +826,8 @@ Razumijevanje scena je jako važno kod mnogih primjena, a posebno kod robotike. 
 
 \section{Testni skupovi}
 
-Ulaz u sustav koji provodi semantičku segmentaciju obično je RGB ili RGBD slika (D označava komponentu dubine). Prije samog modela takve se slike znaju pretprocesirati, recimo iz RGB u YUV komponenete, a ponekad u model ulaze i bez ikakvog procesiranja. Podaci koje sustav koristi za učenje su semantičke oznake: one mogu biti u obliku slika određenog podskupa boja, gdje svaka boja predstavlja neku oznaku ili u tekstualnom formatu gdje je za svaki piksel spremljen indeks njegove oznake. U nastavku su opisani korišteni skupovi podataka.
+Ulaz u sustav koji provodi semantičku segmentaciju obično je RGB ili RGBD slika (D označava komponentu dubine).
+Prije ulaza u sami model, takve se slike pretprocesiraju, recimo iz RGB u YUV komponenete, a ponekad u model ulaze i bez ikakvog procesiranja. Podaci koje sustav koristi za učenje su semantičke oznake: one mogu biti u obliku slika određenog podskupa boja, gdje svaka boja predstavlja neku oznaku ili u tekstualnom formatu gdje je za svaki piksel spremljen indeks njegove oznake. U nastavku su opisani korišteni skupovi podataka.
 
 
 \subsection{Stanford Background Dataset}
@@ -849,8 +864,8 @@ U skupu postoji 8 semantičkih oznaka: nebo, stablo, cesta, trava, voda, zgrada,
 \end{figure}
 
 \subsection{KITTI}
-KITTI\footnote{\emph{http://www.cvlibs.net/datasets/kitti/}} je projekt pokrenut od strane dva instituta: Karslruhe Institue of Technology i Toyota Technological Institute, odakle dolazi i naziv. U sklopu toga projekta napravljen je veliki skup podataka koji se sastoji od slika s kamere, stereo kamera, GPS zapisa i laserskih snimki, prikupljenih s automobila u vožnji. Od tih podataka je napravljeno nekoliko skupova
-podataka za određene probleme poput rekonstrukcija putanje pomoću kamera, stereoskopske rekonstrukcije, detekcije objekta, prepoznavanja objekata i slično.
+KITTI\footnote{\emph{http://www.cvlibs.net/datasets/kitti/}} je projekt pokrenut od strane dva instituta: Karslruhe Institue of Technology i Toyota Technological Institute, odakle dolazi i naziv. U sklopu toga projekta napravljen je veliki skup podataka koji se sastoji od slika s kamere, stereo kamera, GPS zapisa i laserskih snimki, prikupljenih s automobila u vožnji.
+Od tih podataka napravljeno je nekoliko skupova podataka za određene probleme poput rekonstrukcije putanje pomoću kamera, stereoskopske rekonstrukcije, detekcije objekta, prepoznavanja objekata i slično.
 
 Ros et al.\cite{ros:2015} su odabrali određene slike s kamere i semantički ih označili. Taj se skup slika sastoji od 146 označenih slika, od čega je 100 slika skup za učenje i njih 46 skup za testiranje. Slike su veličine 1241 x 376 piksela.
 Semantičke oznake skupa su: nebo, zgrada, cesta, pločnik, ograda, vegetacija, stup, auto, znak, pješak i biciklist. Oznake su spremljene kao posebne slike (jednakih veličina kao i ulazne) gdje određena boja u slici predstavlja pojedinu oznaku.
@@ -1112,6 +1127,8 @@ Arhitektura korištena u ovoj implementaciji napravljena je po uzoru na arhitekt
 
 Arhitektura je prvo testirana na Stanford Background skupu podatka gdje su postignuti rezultati usporedivi s onima u drugim radovima. Taj sustav je radio samo s RGB slikama na ulazu. Nakon toga je sustav proširen tako da može primati i RGB-D slike i evaluiran na KITTI skupu podataka za semantičku segmentaciju gdje je isto postigao relevantne rezultate.
 
+U budućnosti bi se isplatilo isprobati drugačije ahitekture mreže. Pametnijim slaganjem slojeva s drugačijim parametrima možda bi se mogli postići još bolji rezultati. Ostaje za isprobati i razne druge vrste pretprocesiranja slika.
+
 Daljnjim razvojem područja konvolucijskih neuronskih mreža, ali i samog sklopovlja poput specijaliziranih grafičkih kartica semantička segmentacija pomoću konvolucijskih mreža trebala bi davati sve bolje rezultate.
 
 \bibliography{literatura}
@@ -1205,18 +1222,37 @@ Primjeri su dobiveni mrežom koja je učena funkcijom negativne log izglednosti.
 \end{figure}
 
 \section{KITTI}
-Primjeri su dobiveni mrežom koja je učena na RGBD podacima, a kao funkcija troška korištena je funkcija negativne log izglednosti.
+Prikazani su primjeri dobiveni mrežom koja je učena na RGB podacima, a zatim primjeri dobiveni mrežom koja je učena na RGBD podacima.
+Kao funkcija troška korištena je funkcija negativne log izglednosti.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=270px]{imgs/legenda-oznaka.png}
+  \caption{Legenda oznaka KITTI skupa podataka}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/kitti-rgb1.png}
+  \caption{Rezultati na KITTI skupu podataka, RGB mreža}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{imgs/kitti-rgb2.png}
+  \caption{Rezultati na KITTI skupu podataka, RGB mreža}
+\end{figure}
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{imgs/kitti3.png}
-  \caption{Rezultati na KITTI skupu podataka}
+  \caption{Rezultati na KITTI skupu podataka, RGBD mreža}
 \end{figure}
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{imgs/kitti4.png}
-  \caption{Rezultati na KITTI skupu podataka}
+  \caption{Rezultati na KITTI skupu podataka, RGBD mreža}
 \end{figure}
 
 \newpage
