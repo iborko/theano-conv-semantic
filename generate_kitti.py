@@ -12,7 +12,7 @@ import pylab
 import os
 import multiprocessing as mp
 
-from preprocessing.transform_in import yuv_laplacian_norm, resize, calc_hog
+from preprocessing.transform_in import yuv_laplacian_norm, resize
 from preprocessing.transform_out import process_out
 from preprocessing.class_counter import ClassCounter
 from dataset.loader_kitti import load_dataset
@@ -55,7 +55,8 @@ def gen_layers_for_image_hog(i, img):
     depth_img = img[:, :, 3]
     # transform
     rgb_imgs = yuv_laplacian_norm(rgb_img, requested_shape, n_layers=3)
-    depth_img = calc_hog(depth_img)
+    # depth_img = calc_hog(depth_img)
+    depth_img = depth_img.astype('float32') / 255.0
 
     new_imgs = []
     for img in rgb_imgs:
@@ -290,4 +291,4 @@ if __name__ == "__main__":
     if conf is None:
         exit(1)
 
-    main(conf, gen_layers_for_image_hog, n_layers=3, show=show)
+    main(conf, gen_layers_for_image, n_layers=3, show=show)

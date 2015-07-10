@@ -27,13 +27,41 @@ def resize(img, out_shape, inter=1):
     return ret_img
 
 
+def zca_whiten(x):
+    """
+    Applies ZCA whitening to the data (X)
+    http://xcorr.net/2011/05/27/whiten-a-matrix-matlab-code/
+
+    x: numpy 2d array
+        input data, rows are data points, columns are features
+
+    Returns: ZCA whitened 2d array
+    """
+    assert(x.ndim == 2)
+    EPS = 10e-5
+
+    X = x - x.mean(axis=0)
+
+    #   covariance matrix
+    cov = np.dot(X.T, X)
+    #   d = (lambda1, lambda2, ..., lambdaN)
+    d, E = np.linalg.eigh(cov)
+    #   D = diag(d) ^ (-1/2)
+    D = np.diag(1. / np.sqrt(d + EPS))
+    #   W_zca = E * D * E.T
+    W = np.dot(np.dot(E, D), E.T)
+
+    X_white = np.dot(X, W)
+
+    return X_white
+
+
 def calc_hog(img):
     """
     Calculate HOG descriptors of and image
     """
-    hog = cv2.HOGDescriptor()
-    img_hog = hog.compute(img)
-    return img_hog
+    raise Exception('not implemented')
+    return None
 
 
 def get_laplacian_pyramid_layer(img, n):
