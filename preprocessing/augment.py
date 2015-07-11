@@ -32,7 +32,7 @@ def fast_warp_grayscale(img, tf, output_shape=(42, 42), mode='reflect'):
     This wrapper function is about five times faster than
     skimage.transform.warp, for our use case.
     """
-    m = tf._matrix
+    m = tf.params
     img_wf = np.empty((output_shape[0], output_shape[1]), dtype='float32')
 
     img_wf = skimage.transform._warps_cy._warp_fast(
@@ -46,7 +46,7 @@ def fast_warp_rgb(img, tf, output_shape=(42, 42), mode='reflect'):
     This wrapper function is about five times faster than
     skimage.transform.warp, for our use case.
     """
-    m = tf._matrix
+    m = tf.params
     img_wf = np.empty((img.shape[0], output_shape[0], output_shape[1]),
                       dtype='float32')
 
