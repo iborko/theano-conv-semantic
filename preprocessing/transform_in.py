@@ -86,7 +86,7 @@ def normalize_block(block):
         block /= stddev
 
 
-def normalize(img):
+def normalize_blocks(img):
     ''' Normalizes (mean=0, stdev=1) image in blocks of 15x15 '''
     b_x, b_y = 15, 15
     for x in xrange(0, img.shape[0], b_x):
@@ -148,14 +148,14 @@ def yuv_laplacian_norm(img, requested_shape, n_layers=1):
     #   normalize from 0-255 to 0-1
     for i in xrange(n_layers):
         pyr_levels[i] /= 255.0
-        # pyr_levels[i] -= pyr_levels[i].mean()
 
     #   normalize blocks
     #    of every layer
     for i in range(n_layers):
         #   of every channel
         for j in range(pyr_levels[i].shape[2]):
-            normalize(pyr_levels[i][:, :, j])
+            # normalize_blocks(pyr_levels[i][:, :, j])
+            pyr_levels[i][:, :, j] -= pyr_levels[i][:, :, j].mean()
 
     # print "Before axis swap\n", pyr_levels[0][:5, :5, 0]
     for i in xrange(n_layers):
