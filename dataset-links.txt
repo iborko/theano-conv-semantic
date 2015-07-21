@@ -1,0 +1,10 @@
+Datasets:
+
+iccv09Data (Stanford Background Dataset)
+http://dags.stanford.edu/data/iccv09Data.tar.gz
+
+MSRC
+http://research.microsoft.com/en-us/um/people/antcrim/data_objrec/msrc_objcategimagedatabase_v2.zip
+
+KITTI
+http://www.cvc.uab.es/adas/s2uad/Download/KITTI_SEMANTIC.zip
