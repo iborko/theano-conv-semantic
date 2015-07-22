@@ -185,6 +185,14 @@ def write_samples_log(samples, outpath):
         f.writelines("\n".join([s.name for s in samples]))
 
 
+def leave_class_x(y, class_x):
+    """
+    Put all classes != x to 0 and classes == x to 1
+    """
+    y[y != class_x] = 0
+    y[y == class_x] = 1
+
+
 def main(conf, gen_func, n_layers, show=False):
     """
     conf: dictionary
@@ -225,6 +233,8 @@ def main(conf, gen_func, n_layers, show=False):
     y_validation = generate_targets(validation_samples, cc)
     del train_samples
     del validation_samples
+    leave_class_x(y_train, 8)
+    leave_class_x(y_validation, 8)
 
     try_pickle_dump(x_train, os.path.join(out_folder, "x_train.bin"))
     try_pickle_dump(x_validation, os.path.join(out_folder, "x_validation.bin"))
@@ -240,6 +250,7 @@ def main(conf, gen_func, n_layers, show=False):
                           os.path.join(out_folder, "samples_test.log"))
         x_test = generate_x(test_samples, n_layers, gen_func)
         y_test = generate_targets(test_samples, cc)
+        leave_class_x(y_test, 8)
 
         try_pickle_dump(x_test, os.path.join(out_folder, "x_test.bin"))
         try_pickle_dump(y_test, os.path.join(out_folder, "y_test.bin"))
