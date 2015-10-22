@@ -61,7 +61,7 @@ def generate_x(samples, n_layers, gen_func):
     pool = mp.Pool(cpu_count)
     logger.info("Cpu count %d", cpu_count)
 
-    result_func = lambda result: save_result_img(x_list, result)
+    def result_func(result): save_result_img(x_list, result)
 
     for i, sample in enumerate(samples):
         pool.apply_async(gen_func, args=(i, sample.image,),
@@ -103,7 +103,7 @@ def generate_targets(samples):
     # pool = mp.Pool(mp.cpu_count())
     logger.info("Cpu count %d", mp.cpu_count())
 
-    result_func = lambda result: save_result_segm(y, result)
+    def result_func(result): save_result_segm(y, result)
 
     for i, sample in enumerate(samples):
         result_func(mark_image(i, sample.marked_image, requested_shape))
@@ -230,7 +230,7 @@ def main(conf, gen_func, n_layers, show=False):
 
 if __name__ == "__main__":
     '''
-    python generate_iccv_1l.py [show]
+    python generate_iccv_1l.py gen.conf [show]
     '''
     logging.basicConfig(level=logging.INFO)
 

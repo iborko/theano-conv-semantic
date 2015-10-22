@@ -94,7 +94,7 @@ def generate_x(samples, n_layers, gen_func):
     # pool = mp.Pool(cpu_count)
     logger.info("Cpu count %d", cpu_count)
 
-    result_func = lambda result: save_result_img(x_list, result)
+    def result_func(result): save_result_img(x_list, result)
 
     for i, sample in enumerate(samples):
         result_func(gen_func(i, sample.image))
@@ -141,7 +141,7 @@ def generate_targets(samples, class_counter):
     # pool = mp.Pool(mp.cpu_count())
     logger.info("Cpu count %d", mp.cpu_count())
 
-    result_func = lambda result: save_result_segm(y, result)
+    def result_func(result): save_result_segm(y, result)
 
     for i, sample in enumerate(samples):
         result_func(mark_image(i, sample.marked_image,
@@ -268,7 +268,7 @@ def main(conf, gen_func, n_layers, show=False):
 
 if __name__ == "__main__":
     '''
-    python generate_iccv_kitti.py gen.conf [show]
+    python generate_kitti.py gen.conf [show]
     '''
     logging.basicConfig(level=logging.INFO)
 

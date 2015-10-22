@@ -1,3 +1,6 @@
+"""
+Testing and checking ZCA whitening preprocessing
+"""
 import time
 import pylab
 import cv2

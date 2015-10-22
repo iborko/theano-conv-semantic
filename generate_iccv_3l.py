@@ -23,7 +23,7 @@ def gen_layers_for_image(i, img):
 
 if __name__ == "__main__":
     '''
-    python generate_iccv_3l.py [show]
+    python generate_iccv_3l.py gen.conf [show]
     '''
     logging.basicConfig(level=logging.INFO)
 

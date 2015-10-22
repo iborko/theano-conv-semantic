@@ -1,6 +1,5 @@
 """
-Functions for testing conv net, training and testing on just one image
-Version that works with Conv that uses randomization on beginning
+Train inception-like (GoogLeNet) architecture of network
 """
 import os
 import sys
