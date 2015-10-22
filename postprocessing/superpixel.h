@@ -4,10 +4,11 @@
 //#include <cstdio>
 #include "superpixel/segment-image.h"
 
-void segment_cpp(unsigned char *in_arr, int* out_arr, int width, int height) {
-    float sigma = 0.5;
-    float k = 500;
-    int min_size = 20;
+void segment_cpp(unsigned char *in_arr, int* out_arr, int width, int height,
+                 float sigma, float k, int min_size) {
+    //float sigma = 0.5;
+    //float k = 500;
+    //int min_size = 20;
 
     image<rgb> *img = new image<rgb>(width, height, false);
     delete[] img->data;

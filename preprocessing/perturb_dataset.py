@@ -84,7 +84,7 @@ def change_train_set(shared_x, x, shared_y, y, marked_shape):
     new_y_shape = (y.shape[0], marked_shape[0], marked_shape[1])
     new_y = np.zeros(new_y_shape,
                      dtype=theano.config.floatX)
-    logger.info("/|\ - Started perturbing dataset")
+    print("/|\ - Started perturbing dataset")
 
     pool = mp.Pool(mp.cpu_count())
 
@@ -116,7 +116,7 @@ def change_train_set(shared_x, x, shared_y, y, marked_shape):
     pylab.show()
     '''
 
-    logger.info("\|/ - Done perturbing dataset")
+    print("\|/ - Done perturbing dataset")
 
 
 def change_train_set_multiscale(shared_xs, xs, shared_y, y, marked_shape):
@@ -149,7 +149,7 @@ def change_train_set_multiscale(shared_xs, xs, shared_y, y, marked_shape):
     new_y_shape = (y.shape[0], marked_shape[0], marked_shape[1])
     new_y = np.zeros(new_y_shape,
                      dtype=theano.config.floatX)
-    logger.info("/|\ - Started perturbing dataset")
+    print("/|\ - Started perturbing dataset")
 
     pool = mp.Pool(mp.cpu_count())
 
@@ -188,4 +188,4 @@ def change_train_set_multiscale(shared_xs, xs, shared_y, y, marked_shape):
     pylab.show()
     '''
 
-    logger.info("\|/ - Done perturbing dataset")
+    print("\|/ - Done perturbing dataset")

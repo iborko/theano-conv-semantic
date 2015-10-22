@@ -9,6 +9,7 @@ from preprocessing.augment import perturb_image
 from util import try_pickle_load
 
 IMAGES_TO_SHOW = 5
+CHANNEL = 0  # channel to show
 
 
 def main(path, marked_path=None):
@@ -52,7 +53,7 @@ def main(path, marked_path=None):
         for j in xrange(images_to_show):
             pylab.subplot(n_rows, images_to_show, i * images_to_show + j + 1)
             pylab.axis('off')
-            pylab.imshow(imgs[j, 0, :, :])
+            pylab.imshow(imgs[j, CHANNEL, :, :])
             pylab.gray()  # set colormap
 
     for ind, imgs in enumerate(perturbed_imgs):
@@ -60,7 +61,7 @@ def main(path, marked_path=None):
         for j in xrange(images_to_show):
             pylab.subplot(n_rows, images_to_show, i * images_to_show + j + 1)
             pylab.axis('off')
-            pylab.imshow(imgs[j, 0, :, :])
+            pylab.imshow(imgs[j, CHANNEL, :, :])
             pylab.gray()
 
     if perturbed_marks is not None:
@@ -81,6 +82,7 @@ if __name__ == "__main__":
     """
     Example of run command:
     python test_data_perturbations.py data/x_train.bin
+    python test_data_perturbations.py data/x_train.bin data/y_train.bin
     """
     argc = len(sys.argv)
     if argc == 2:

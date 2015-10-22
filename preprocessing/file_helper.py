@@ -1,4 +1,5 @@
 import os
+from cv2 import imread
 
 
 def get_file_list(path, extension):
@@ -11,3 +12,12 @@ def get_file_list(path, extension):
         break  # because only top level is wanted
 
     return filter(lambda f: f.lower().endswith(extension), files)
+
+
+def open_image(folder, name):
+    path = os.path.join(folder, name)
+    img = imread(path)
+    if img is None:
+        print "Cant open image", path
+        exit(1)
+    return img

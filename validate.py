@@ -12,7 +12,7 @@ import theano
 import theano.tensor as T
 
 from helpers.data_helper import shared_dataset
-from helpers.build_multiscale import build_multiscale, extend_net_w1l
+from helpers.build_multiscale import build_multiscale, extend_net_w1l, extend_net_w1l_drop
 from preprocessing.transform_out import resize_marked_image
 from util import try_pickle_load
 from helpers.load_conf import load_config
@@ -21,7 +21,7 @@ from helpers.eval import calc_class_accuracy
 logger = logging.getLogger(__name__)
 
 ReLU = lambda x: T.maximum(x, 0)
-lReLU = lambda x: T.maximum(x, 1.0/3.0*x)  # leaky ReLU
+lReLU = lambda x: T.maximum(x, 1./5*x)  # leaky ReLU
 
 
 def set_layers_training_mode(layers, mode):
@@ -162,7 +162,7 @@ def validate(conf, net_weights):
     ###############
     logger.info("... building model")
 
-    layers, new_layers = extend_net_w1l(
+    layers, new_layers = extend_net_w1l_drop(
         conv_out, layers, n_classes,
         nkerns=[1000],
         activation=lReLU, bias=0.001)
@@ -170,7 +170,7 @@ def validate(conf, net_weights):
     test_model_trainset = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_train_shared[index * batch_size: (index + 1) * batch_size],
@@ -182,7 +182,7 @@ def validate(conf, net_weights):
     test_model_testset = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         layers[0].boost_negative_log_likelihood(y_flat, 2)] +
+         layers[0].negative_log_likelihood(y_flat)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
             x0: x_test_shared[index * batch_size: (index + 1) * batch_size],

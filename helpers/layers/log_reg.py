@@ -10,6 +10,22 @@ import theano
 import theano.tensor as T
 
 
+def build_loss(log_reg_layer, func_name, *loss_args):
+    """
+    Build loss function
+    log_reg_layer: helpers.layers.log_reg.LogisticRegression object
+        classification layer of a net
+    func_name: string
+        loss function name
+    """
+    assert(type(log_reg_layer) is LogisticRegression)
+
+    loss_function = LogisticRegression.__dict__[func_name]
+    n_args = loss_function.func_code.co_argcount - 1  # minus self
+    selected_args = loss_args[:n_args]
+    return loss_function(log_reg_layer, *selected_args)
+
+
 class LogisticRegression(object):
     """Multi-class Logistic Regression Class
 
@@ -73,7 +89,7 @@ class LogisticRegression(object):
         # parameters of the model
         self.params = [self.W, self.b]
 
-    def negative_log_likelihood(self, y):
+    def negative_log_likelihood(self, y, p_c, care_classes):
         """Return the mean of the negative log-likelihood of the prediction
         of this model under a given target distribution.
 
@@ -101,7 +117,12 @@ class LogisticRegression(object):
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x[T.arange(y.shape[0]), y]))
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        if care_classes is not None:
+            p_correct_classes = T.set_subtensor(
+                p_correct_classes[T.eq(care_classes[y], 0).nonzero()],
+                T.cast(1.0, 'float32'))
+        return -T.mean(T.log(p_correct_classes))
 
     def boost_negative_log_likelihood(self, y, alpha):
         """
@@ -116,11 +137,36 @@ class LogisticRegression(object):
         :param alpha: boosting order (default set to 1, 2)
         """
         p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
-        return -T.mean(T.pow(1 - p_correct_classes, alpha) * T.log(p_correct_classes))
+        return -T.mean(T.pow(1 - p_correct_classes, alpha)
+                       * T.log(p_correct_classes))
+
+    def bayesian_nll_ds(self, y, p_c, care_classes=None):
+        """
+        Bayesian negative log likelihood (uses class apriors to calc loss)
+        Class priors calculated per dataset.
+
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for each example the
+                  correct label
+
+        :type p_c: theano.tensor.TensorType
+        :param y: aprior class probabilities in train dataset
+
+        :type care_classes: theano.tensor.TensorType
+        :param care_classes: indices of classes whose gradient we track,
+                             other gradients are set to zero
+        """
+        p_correct_classes = self.p_y_given_x[T.arange(y.shape[0]), y]
+        if care_classes is not None:
+            p_correct_classes = T.set_subtensor(
+                p_correct_classes[T.eq(care_classes[y], 0).nonzero()],
+                T.cast(1.0, 'float32'))
+        return -T.mean(T.log(p_correct_classes) / p_c[y])
 
     def bayesian_nll(self, y):
         """
         Bayesian negative log likelihood (uses class apriors to calc loss)
+        Class priors calculated per minibatch.
         """
         # TODO check if training loss in inf
         p_c = T.zeros((self.n_classes), dtype='float32')

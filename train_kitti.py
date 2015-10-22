@@ -16,9 +16,8 @@ import theano.tensor as T
 from helpers.data_helper import shared_dataset
 from helpers.data_helper import build_care_classes
 from helpers.data_helper import calc_class_freqs
-from helpers.build_multiscale import get_net_builder
-from helpers.build_multiscale import extend_net_w1l_drop
-from helpers.layers.log_reg import build_loss
+import helpers.build_multiscale as net_builders
+from helpers.layers.log_reg import LogisticRegression
 from helpers.weight_updates import gradient_updates_rms, gradient_updates_SGD
 from helpers.eval import eval_model
 from preprocessing.perturb_dataset import change_train_set_multiscale
@@ -29,7 +28,6 @@ from helpers.load_conf import convert_to_function_params
 
 logger = logging.getLogger(__name__)
 
-ReLU = lambda x: T.maximum(x, 0)
 lReLU = lambda x: T.maximum(x, 1./5 * x)  # leaky ReLU
 
 
@@ -46,6 +44,28 @@ def build_weight_updates(configuration, cost, params):
     p['cost'] = cost
     p['params'] = params
     return update_modes[configuration['optimization']](**p)
+
+
+def get_net_builder(name):
+    """
+    name: string
+        net builder name (function that builds theano net)
+    """
+    return net_builders.__dict__[name]
+
+
+def build_loss(log_reg_layer, func_name, *loss_args):
+    """
+    Build loss function
+    log_reg_layer: helpers.layers.log_reg.LogisticRegression object
+        classification layer of a net
+    func_name: string
+        loss function name
+    """
+    loss_function = LogisticRegression.__dict__[func_name]
+    n_args = loss_function.func_code.co_argcount - 1  # minus self
+    selected_args = loss_args[:n_args]
+    return loss_function(log_reg_layer, *selected_args)
 
 
 def evaluate_conv(conf, net_weights=None):
@@ -69,9 +89,9 @@ def evaluate_conv(conf, net_weights=None):
         x_train_allscales = try_pickle_load(path + 'x_train.bin')
         x_train = x_train_allscales[0]  # first scale
         y_train = try_pickle_load(path + 'y_train.bin')
-        x_test_allscales = try_pickle_load(path + 'x_validation.bin')
+        x_test_allscales = try_pickle_load(path + 'x_test.bin')
         x_test = x_test_allscales[0]
-        y_test = try_pickle_load(path + 'y_validation.bin')
+        y_test = try_pickle_load(path + 'y_test.bin')
     except IOError:
         logger.error("Unable to load Theano dataset from %s", path)
         exit(1)
@@ -250,17 +270,16 @@ def evaluate_conv(conf, net_weights=None):
         layer.set_weights(net_weight)
 
     logger.info('Starting second step, with Dropout hidden layers')
-    layers, new_layers = extend_net_w1l_drop(
+    layers, new_layers = net_builders.extend_net_w1l_drop(
         conv_out, conf['network']['layers'][-2] * 3, layers, n_classes,
         nkerns=conf['network']['layers'][-1:],
-        seed=conf['network']['seed'],
         activation=lReLU, bias=0.001)
 
     # create a function to compute the mistakes that are made by the model
     test_model2 = theano.function(
         [index],
         [layers[0].errors(y_flat),
-         build_loss(layers[0], conf['network']['loss'],
+         build_loss(layers[0], conf['net']['loss'],
                     y_flat, class_freqs, care_classes)] +
         list(layers[0].accurate_pixels_class(y_flat)),
         givens={
@@ -325,9 +344,9 @@ def evaluate_conv(conf, net_weights=None):
 if __name__ == '__main__':
     """
     Examples of usage:
-    python train_2step_3l.py network.conf
+    python train_kitti.py network.conf
 
-    python train_2step_3l.py network.conf network-12-34.bin
+    python train_kitti.py network.conf network-12-34.bin
         trains network starting with weights in network-*.bin file
     """
     logging.basicConfig(level=logging.INFO)

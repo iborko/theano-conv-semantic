@@ -8,10 +8,12 @@ np.import_array()
 
 # cdefine the signature of our c function
 cdef extern from "superpixel.h":
-    void segment_cpp(unsigned char *in_arr, int *out_arr, int width, int height)
+    void segment_cpp(unsigned char *in_arr, int *out_arr, int width, int height,
+                     float sigma, float k, int min_size)
 
 # create the wrapper code, with numpy type annotations
-def segment(np.ndarray[unsigned char, ndim=3, mode="c"] in_array not None):
+def segment(np.ndarray[unsigned char, ndim=3, mode="c"] in_array not None,
+            float sigma, float k, int min_size):
 
     if in_array.shape[2] != 3:
         raise RuntimeError("in_array must be RGB image")
@@ -23,6 +25,7 @@ def segment(np.ndarray[unsigned char, ndim=3, mode="c"] in_array not None):
 
     segment_cpp(<unsigned char*> np.PyArray_DATA(in_array),
                 <int*> np.PyArray_DATA(out_array),
-                width, height)
+                width, height,
+                sigma, k, min_size)
 
     return out_array

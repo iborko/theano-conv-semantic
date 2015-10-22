@@ -94,7 +94,7 @@ def generate_targets(samples, class_counter):
     """
     y_shape = (len(samples), requested_shape[0], requested_shape[1])
 
-    y = np.zeros(y_shape, dtype=theano.config.floatX)
+    y = np.zeros(y_shape, dtype='int8')
 
     logger.info("Segmented images new shape %s", y.shape)
 
@@ -116,7 +116,7 @@ def generate_targets(samples, class_counter):
     return y
 
 
-def split_samples(samples, classes, test_size=0.1):
+def split_samples(samples, test_size=0.1):
     n = len(samples)
     n_test = int(test_size * n)
     n_train = n - n_test
