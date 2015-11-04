@@ -576,15 +576,15 @@ def build_multiscale_rgbd(x0, x2, x4, y, batch_size, classes, image_shape,
     logger.info('... building the model')
 
     rng = numpy.random.RandomState(seed)
-    layers0, img_shp, out0 = build_scale_3l_rgbd1(
+    layers0, img_shp, out0 = build_scale_3l_rgbd(
         x0, batch_size, image_shape, nkerns, nfilters,
         sparse, activation, bias, rng, None)
     image_shape_s2 = div_tuple(image_shape, 2)
-    layers2, _, out2 = build_scale_3l_rgbd1(
+    layers2, _, out2 = build_scale_3l_rgbd(
         x2, batch_size, image_shape_s2, nkerns, nfilters,
         sparse, activation, bias, rng, layers0)
     image_shape_s4 = div_tuple(image_shape_s2, 2)
-    layers4, _, out4 = build_scale_3l_rgbd1(
+    layers4, _, out4 = build_scale_3l_rgbd(
         x4, batch_size, image_shape_s4, nkerns, nfilters,
         sparse, activation, bias, rng, layers2)
 
